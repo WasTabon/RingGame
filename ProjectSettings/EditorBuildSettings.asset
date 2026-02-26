@@ -6,6 +6,12 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/RingGame/Scenes/MainMenu.unity
+    guid: 486f03b1a2930f144954a39464696b81
+  - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 2cda990e2423bbf4892e6590ba056729
+  - enabled: 1
+    path: Assets/RingGame/Scenes/Game.unity
+    guid: 2be9e6c84c2b2c242b5ec225545a005e
   m_configObjects: {}
