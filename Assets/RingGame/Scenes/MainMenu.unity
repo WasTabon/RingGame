@@ -541,7 +541,7 @@ MonoBehaviour:
   musicSource: {fileID: 550740024}
   sfxSource: {fileID: 1577240241}
   defaultMusicClip: {fileID: 8300000, guid: 7febcd59b3f083140a3d7cfa9cf63a32, type: 3}
-  beatSensitivity: 0.5
+  beatSensitivity: 0.1
   beatCooldown: 0.2
   spectrumSize: 64
   fftWindow: 5

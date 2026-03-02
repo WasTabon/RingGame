@@ -877,8 +877,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bdd70ac8b82899d4ca2e281442ad0ca2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  toggleKey: 282
-  showOnStart: 1
 --- !u!4 &336733292
 Transform:
   m_ObjectHideFlags: 0
@@ -1413,13 +1411,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bpm: 120
-  beatInterval: 1.5
+  beatInterval: 2.5
   cueLeadTime: 0.8
   stageWindowMs:
-  - 200
-  - 170
-  - 140
-  - 110
+  - 800
+  - 700
+  - 600
+  - 500
 --- !u!4 &561165296
 Transform:
   m_ObjectHideFlags: 0

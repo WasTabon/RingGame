@@ -43,9 +43,6 @@ public class TapInputHandler : MonoBehaviour
 
     private bool IsPointerOverUI(int fingerId)
     {
-        if (EventSystem.current == null) return false;
-        if (fingerId >= 0)
-            return EventSystem.current.IsPointerOverGameObject(fingerId);
-        return EventSystem.current.IsPointerOverGameObject();
+        return false;
     }
 }

@@ -67,11 +67,11 @@ public class BeatSequencer : MonoBehaviour
             int ringIndex = currentBeatInCycle % ringCount;
             CurrentBeatRingIndex = ringIndex;
 
-            OnBeatCue?.Invoke(ringIndex);
-
             IsWindowOpen = true;
             windowTimer = 0f;
             bool wasHit = false;
+
+            OnBeatCue?.Invoke(ringIndex);
 
             while (windowTimer < windowDuration)
             {

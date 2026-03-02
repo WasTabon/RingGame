@@ -1,340 +1,256 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
-using DG.Tweening;
+using System.Collections.Generic;
+using System.IO;
 
 public class RuntimeDiagnostics : MonoBehaviour
 {
-    [Header("Settings")]
-    [SerializeField] private KeyCode toggleKey = KeyCode.F1;
-    [SerializeField] private bool showOnStart = true;
-
-    private Canvas canvas;
-    private CanvasGroup canvasGroup;
-    private TextMeshProUGUI outputText;
-    private Image beatFlash;
-
-    private bool visible;
-    private float beatFlashTimer;
-    private float tapFlashTimer;
+    private List<string> log = new List<string>();
+    private float startTime;
     private int beatCount;
+    private int beatCueCount;
+    private int beatExpiredCount;
     private int tapCount;
-    private int hitCount;
-    private int missCount;
+    private int tapHitCount;
+    private int tapMissCount;
+    private float lowFreqMax;
+    private float lowFreqMin = 999f;
+    private int lowFreqChanges;
     private float lastLowFreq;
-    private bool wasWindowOpen;
-
-    private void Awake()
-    {
-        BuildUI();
-    }
+    private int frameCount;
+    private bool summarySaved;
 
     private void Start()
     {
+        startTime = Time.time;
+        Log("=== DIAGNOSTICS STARTED ===");
+        Log($"Time: {System.DateTime.Now}");
+        Log("");
+        CheckManagers();
         SubscribeToEvents();
-        visible = showOnStart;
-        canvasGroup.alpha = visible ? 1f : 0f;
+        Log("");
+        Log("=== EVENTS LOG ===");
     }
 
-    private void OnDestroy()
+    private void CheckManagers()
     {
-        UnsubscribeFromEvents();
+        Log("--- MANAGERS ---");
+        LogCheck("GameManager", GameManager.Instance != null,
+            GameManager.Instance != null ? $"State={GameManager.Instance.CurrentState}" : "");
+        LogCheck("AudioManager", AudioManager.Instance != null, "");
+        LogCheck("BalanceManager", BalanceManager.Instance != null,
+            BalanceManager.Instance != null ? $"Balance=${BalanceManager.Instance.Balance}" : "");
+        LogCheck("BetManager", BetManager.Instance != null,
+            BetManager.Instance != null ? $"Bet=${BetManager.Instance.CurrentBet}" : "");
+        LogCheck("RingsManager", RingsManager.Instance != null,
+            RingsManager.Instance != null ? $"Rings={RingsManager.Instance.RingCount}" : "");
+        LogCheck("RhythmPhaseController", RhythmPhaseController.Instance != null, "");
+        LogCheck("BeatSequencer", BeatSequencer.Instance != null, "");
+        LogCheck("TapInputHandler", TapInputHandler.Instance != null, "");
+
+        if (AudioManager.Instance != null)
+        {
+            var sources = AudioManager.Instance.GetComponentsInChildren<AudioSource>();
+            foreach (var src in sources)
+            {
+                if (src.loop)
+                    Log($"  AudioSource: isPlaying={src.isPlaying}  clip={(src.clip != null ? src.clip.name : "NULL")}");
+            }
+        }
     }
 
     private void SubscribeToEvents()
     {
+        Log("--- SUBSCRIPTIONS ---");
+
         if (AudioManager.Instance != null)
         {
             AudioManager.Instance.OnBeat -= OnBeat;
             AudioManager.Instance.OnBeat += OnBeat;
+            Log("  [OK] AudioManager.OnBeat");
         }
+        else Log("  [FAIL] AudioManager.Instance is NULL");
+
         if (TapInputHandler.Instance != null)
         {
             TapInputHandler.Instance.OnTap -= OnTap;
             TapInputHandler.Instance.OnTap += OnTap;
+            Log("  [OK] TapInputHandler.OnTap");
         }
+        else Log("  [FAIL] TapInputHandler.Instance is NULL");
+
         if (BeatSequencer.Instance != null)
         {
             BeatSequencer.Instance.OnBeatCue -= OnBeatCue;
             BeatSequencer.Instance.OnBeatCue += OnBeatCue;
             BeatSequencer.Instance.OnBeatExpired -= OnBeatExpired;
             BeatSequencer.Instance.OnBeatExpired += OnBeatExpired;
+            BeatSequencer.Instance.OnCycleComplete -= OnCycleComplete;
+            BeatSequencer.Instance.OnCycleComplete += OnCycleComplete;
+            Log("  [OK] BeatSequencer events");
         }
+        else Log("  [FAIL] BeatSequencer.Instance is NULL");
+
+        if (RingsManager.Instance != null)
+        {
+            RingsManager.Instance.OnRingsSpawned -= OnRingsSpawned;
+            RingsManager.Instance.OnRingsSpawned += OnRingsSpawned;
+            Log("  [OK] RingsManager.OnRingsSpawned");
+        }
+        else Log("  [FAIL] RingsManager.Instance is NULL");
+
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnStateChanged -= OnStateChanged;
+            GameManager.Instance.OnStateChanged += OnStateChanged;
+            Log("  [OK] GameManager.OnStateChanged");
+        }
+        else Log("  [FAIL] GameManager.Instance is NULL");
     }
 
-    private void UnsubscribeFromEvents()
+    private void Update()
     {
+        frameCount++;
+
         if (AudioManager.Instance != null)
-            AudioManager.Instance.OnBeat -= OnBeat;
-        if (TapInputHandler.Instance != null)
-            TapInputHandler.Instance.OnTap -= OnTap;
-        if (BeatSequencer.Instance != null)
         {
-            BeatSequencer.Instance.OnBeatCue -= OnBeatCue;
-            BeatSequencer.Instance.OnBeatExpired -= OnBeatExpired;
+            float low = AudioManager.Instance.LowFreqValue;
+            if (Mathf.Abs(low - lastLowFreq) > 0.01f)
+            {
+                lowFreqChanges++;
+                if (low > lowFreqMax) lowFreqMax = low;
+                if (low < lowFreqMin) lowFreqMin = low;
+                lastLowFreq = low;
+            }
+        }
+
+        if (Input.GetMouseButtonDown(0) || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began))
+        {
+            bool windowOpen = BeatSequencer.Instance != null && BeatSequencer.Instance.IsWindowOpen;
+            Log($"  [RAW INPUT] at t={T()}  BeatWindowOpen={windowOpen}  TapHandlerExists={TapInputHandler.Instance != null}");
         }
     }
 
     private void OnBeat()
     {
         beatCount++;
-        beatFlashTimer = 0.15f;
+        Log($"  [AUDIO BEAT] #{beatCount} t={T()}  LowFreq={AudioManager.Instance?.LowFreqValue:F3}");
+    }
+
+    private void OnBeatCue(int ringIndex)
+    {
+        beatCueCount++;
+        Log($"  [BEAT CUE] #{beatCueCount} ring={ringIndex} t={T()}  WindowOpen={BeatSequencer.Instance?.IsWindowOpen}");
+        if (RingsManager.Instance != null && ringIndex < RingsManager.Instance.RingCount)
+            Log($"    Ring{ringIndex} state={RingsManager.Instance.ActiveRings[ringIndex].CurrentState}");
+    }
+
+    private void OnBeatExpired(int ringIndex)
+    {
+        beatExpiredCount++;
+        Log($"  [BEAT EXPIRED] ring={ringIndex} t={T()}");
+    }
+
+    private void OnCycleComplete()
+    {
+        Log($"  [CYCLE COMPLETE] t={T()}");
     }
 
     private void OnTap()
     {
         tapCount++;
-        tapFlashTimer = 0.15f;
-
-        if (BeatSequencer.Instance != null && BeatSequencer.Instance.IsWindowOpen)
-            hitCount++;
-        else
-            missCount++;
-    }
-
-    private void OnBeatCue(int ringIndex)
-    {
-        beatCount++;
-    }
-
-    private void OnBeatExpired(int ringIndex)
-    {
-    }
-
-    private void Update()
-    {
-        if (Input.GetKeyDown(toggleKey))
+        bool windowOpen = BeatSequencer.Instance?.IsWindowOpen ?? false;
+        int ringIndex = BeatSequencer.Instance?.CurrentBeatRingIndex ?? -1;
+        if (windowOpen)
         {
-            visible = !visible;
-            canvasGroup.DOFade(visible ? 1f : 0f, 0.2f);
-        }
-
-        if (!visible) return;
-
-        beatFlashTimer -= Time.deltaTime;
-        tapFlashTimer -= Time.deltaTime;
-
-        if (beatFlash != null)
-        {
-            beatFlash.color = beatFlashTimer > 0
-                ? new Color(1f, 0.82f, 0.1f, 0.85f)
-                : new Color(0.3f, 0.3f, 0.3f, 0.4f);
-        }
-
-        outputText.text = BuildReport();
-    }
-
-    private string BuildReport()
-    {
-        var sb = new System.Text.StringBuilder();
-
-        sb.AppendLine("<b>── RUNTIME DIAGNOSTICS ──</b>");
-        sb.AppendLine($"<size=11><color=#888>F1 to toggle</color></size>\n");
-
-        sb.AppendLine(SectionHeader("MANAGERS"));
-        sb.AppendLine(CheckInstance("GameManager", GameManager.Instance != null,
-            GameManager.Instance != null ? $"State: <b>{GameManager.Instance.CurrentState}</b>" : ""));
-        sb.AppendLine(CheckInstance("AudioManager", AudioManager.Instance != null,
-            AudioManager.Instance != null ? $"Playing: <b>{AudioManager.Instance.GetComponent<AudioSource>() != null}</b>" : ""));
-        sb.AppendLine(CheckInstance("BalanceManager", BalanceManager.Instance != null,
-            BalanceManager.Instance != null ? $"Balance: <b>${BalanceManager.Instance.Balance:N0}</b>" : ""));
-        sb.AppendLine(CheckInstance("BetManager", BetManager.Instance != null,
-            BetManager.Instance != null ? $"Bet: <b>${BetManager.Instance.CurrentBet:N0}</b>" : ""));
-        sb.AppendLine(CheckInstance("RingsManager", RingsManager.Instance != null,
-            RingsManager.Instance != null ? $"Rings: <b>{RingsManager.Instance.RingCount}</b>" : ""));
-        sb.AppendLine(CheckInstance("RhythmPhaseCtrl", RhythmPhaseController.Instance != null, ""));
-        sb.AppendLine(CheckInstance("BeatSequencer", BeatSequencer.Instance != null, ""));
-        sb.AppendLine(CheckInstance("TapInputHandler", TapInputHandler.Instance != null, ""));
-
-        sb.AppendLine();
-        sb.AppendLine(SectionHeader("AUDIO"));
-
-        if (AudioManager.Instance != null)
-        {
-            float low = AudioManager.Instance.LowFreqValue;
-            float mid = AudioManager.Instance.MidFreqValue;
-            bool lowChanging = Mathf.Abs(low - lastLowFreq) > 0.001f;
-            lastLowFreq = low;
-
-            string musicStatus = CheckMusicSource();
-            sb.AppendLine($"  Music Source   {musicStatus}");
-            sb.AppendLine($"  Low Freq       {Bar(low)} {low:F3} {(lowChanging ? "<color=#4f4>" + "▲</color>" : "")}");
-            sb.AppendLine($"  Mid Freq       {Bar(mid)} {mid:F3}");
-            sb.AppendLine($"  Beats Detected <b>{beatCount}</b>  {(beatFlashTimer > 0 ? "<color=#FFD700>● BEAT</color>" : "○")}");
+            tapHitCount++;
+            Log($"  [TAP HIT] #{tapCount} t={T()} ring={ringIndex} progress={BeatSequencer.Instance?.WindowProgress:F2}");
         }
         else
         {
-            sb.AppendLine(Err("  AudioManager not found!"));
+            tapMissCount++;
+            Log($"  [TAP MISS] #{tapCount} t={T()} window was closed");
         }
+    }
 
-        sb.AppendLine();
-        sb.AppendLine(SectionHeader("BEAT SEQUENCER"));
-
-        if (BeatSequencer.Instance != null)
-        {
-            var bs = BeatSequencer.Instance;
-            sb.AppendLine($"  Window Open    {Bool(bs.IsWindowOpen)}");
-            sb.AppendLine($"  Current Ring   <b>{bs.CurrentBeatRingIndex}</b>");
-            sb.AppendLine($"  Window Progress {ProgressBar(bs.WindowProgress)}");
-        }
-        else
-        {
-            sb.AppendLine(Err("  BeatSequencer not found!"));
-        }
-
-        sb.AppendLine();
-        sb.AppendLine(SectionHeader("INPUT"));
-
-        if (TapInputHandler.Instance != null)
-        {
-            sb.AppendLine($"  Total Taps     <b>{tapCount}</b>  {(tapFlashTimer > 0 ? "<color=#4af>● TAP</color>" : "○")}");
-            sb.AppendLine($"  Hits           <color=#4f4><b>{hitCount}</b></color>");
-            sb.AppendLine($"  Misses         <color=#f44><b>{missCount}</b></color>");
-
-            bool windowOpen = BeatSequencer.Instance != null && BeatSequencer.Instance.IsWindowOpen;
-            sb.AppendLine($"  Next tap would <b>{(windowOpen ? "<color=#4f4>HIT</color>" : "<color=#f44>MISS</color>")}</b>");
-        }
-        else
-        {
-            sb.AppendLine(Err("  TapInputHandler not found!"));
-        }
-
-        sb.AppendLine();
-        sb.AppendLine(SectionHeader("RINGS"));
-
-        if (RingsManager.Instance != null && RingsManager.Instance.RingCount > 0)
-        {
+    private void OnRingsSpawned()
+    {
+        Log($"  [RINGS SPAWNED] count={RingsManager.Instance?.RingCount} t={T()}");
+        if (RingsManager.Instance != null)
             for (int i = 0; i < RingsManager.Instance.ActiveRings.Count; i++)
             {
-                var ring = RingsManager.Instance.ActiveRings[i];
-                string state = ring.CurrentState.ToString();
-                string stateColor = ring.CurrentState switch
-                {
-                    RingController.RingState.Highlighted => "#FFD700",
-                    RingController.RingState.Captured => "#4f4",
-                    RingController.RingState.Stopped => "#888",
-                    _ => "#aaa"
-                };
-                sb.AppendLine($"  Ring {i}  Symbol:<b>{ring.SymbolType}</b>  State:<color={stateColor}><b>{state}</b></color>");
+                var r = RingsManager.Instance.ActiveRings[i];
+                Log($"    Ring{i}: symbol={r.SymbolType} state={r.CurrentState}");
             }
-        }
-        else
+    }
+
+    private void OnStateChanged(GameManager.GameState state)
+    {
+        Log($"  [STATE CHANGE] -> {state} t={T()}");
+        if (state == GameManager.GameState.RhythmPhase)
         {
-            sb.AppendLine("  <color=#888>No rings active (start a round)</color>");
+            Log($"    RhythmPhaseController={RhythmPhaseController.Instance != null}");
+            Log($"    BeatSequencer={BeatSequencer.Instance != null}");
+            Log($"    TapInputHandler={TapInputHandler.Instance != null}");
         }
-
-        sb.AppendLine();
-        sb.AppendLine($"<size=10><color=#555>Frame: {Time.frameCount}  Time: {Time.time:F1}s</color></size>");
-
-        return sb.ToString();
     }
 
-    private string CheckMusicSource()
+    private void OnDestroy()
     {
-        var am = AudioManager.Instance;
-        if (am == null) return Err("NULL");
-        var sources = am.GetComponentsInChildren<AudioSource>();
-        foreach (var src in sources)
+        UnsubscribeFromEvents();
+        SaveLog();
+    }
+
+    private void OnApplicationQuit()
+    {
+        SaveLog();
+    }
+
+    private void UnsubscribeFromEvents()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.OnBeat -= OnBeat;
+        if (TapInputHandler.Instance != null) TapInputHandler.Instance.OnTap -= OnTap;
+        if (BeatSequencer.Instance != null)
         {
-            if (src.loop)
-                return src.isPlaying
-                    ? $"<color=#4f4>● PLAYING</color>  clip: <b>{(src.clip != null ? src.clip.name : "none")}</b>"
-                    : $"<color=#f44>○ STOPPED</color>  clip: <b>{(src.clip != null ? src.clip.name : "none")}</b>";
+            BeatSequencer.Instance.OnBeatCue -= OnBeatCue;
+            BeatSequencer.Instance.OnBeatExpired -= OnBeatExpired;
+            BeatSequencer.Instance.OnCycleComplete -= OnCycleComplete;
         }
-        return Err("no looping AudioSource found");
+        if (RingsManager.Instance != null) RingsManager.Instance.OnRingsSpawned -= OnRingsSpawned;
+        if (GameManager.Instance != null) GameManager.Instance.OnStateChanged -= OnStateChanged;
     }
 
-    private string SectionHeader(string title)
-        => $"<color=#6af><b>▸ {title}</b></color>";
-
-    private string CheckInstance(string label, bool exists, string extra)
+    private void SaveLog()
     {
-        string status = exists ? "<color=#4f4>✓</color>" : "<color=#f44>✗</color>";
-        string ext = extra.Length > 0 ? $"  {extra}" : "";
-        return $"  {status} {label}{ext}";
+        if (summarySaved) return;
+        summarySaved = true;
+
+        Log("");
+        Log("=== SUMMARY ===");
+        Log($"Duration: {(Time.time - startTime):F1}s  Frames: {frameCount}");
+        Log($"Audio beats: {beatCount}");
+        Log($"LowFreq changes: {lowFreqChanges}  min={lowFreqMin:F3}  max={lowFreqMax:F3}");
+        Log(lowFreqChanges > 10
+            ? "  -> [OK] Audio spectrum updating"
+            : "  -> [WARN] LowFreq barely changed — music not playing or AudioSource not assigned");
+        Log($"Beat cues: {beatCueCount}  Expired: {beatExpiredCount}");
+        Log(beatCueCount == 0
+            ? "  -> [WARN] No beat cues — BeatSequencer never started or not connected to controller"
+            : "  -> [OK] Beat cues fired");
+        Log($"Taps: {tapCount}  Hits: {tapHitCount}  Misses: {tapMissCount}");
+        Log(tapCount == 0
+            ? "  -> [WARN] No taps — TapInputHandler not working or not active"
+            : "  -> [OK] Taps registered");
+
+        string path = Path.Combine(Application.persistentDataPath, "diagnostics.txt");
+        File.WriteAllLines(path, log);
+        Debug.Log($"[Diagnostics] Saved to: {path}");
     }
 
-    private string Bool(bool val)
-        => val ? "<color=#4f4><b>YES</b></color>" : "<color=#f44><b>NO</b></color>";
-
-    private string Bar(float val)
+    private void Log(string msg) => log.Add(msg);
+    private string T() => $"{(Time.time - startTime):F2}s";
+    private void LogCheck(string label, bool ok, string extra)
     {
-        int filled = Mathf.RoundToInt(val * 10f);
-        filled = Mathf.Clamp(filled, 0, 10);
-        string bar = "[";
-        for (int i = 0; i < 10; i++)
-            bar += i < filled ? "█" : "░";
-        bar += "]";
-        return bar;
-    }
-
-    private string ProgressBar(float val)
-    {
-        int filled = Mathf.RoundToInt(val * 12f);
-        filled = Mathf.Clamp(filled, 0, 12);
-        string bar = "[";
-        for (int i = 0; i < 12; i++)
-            bar += i < filled ? "<color=#FFD700>█</color>" : "░";
-        bar += "]";
-        return bar;
-    }
-
-    private string Err(string msg) => $"<color=#f44>{msg}</color>";
-
-    private void BuildUI()
-    {
-        var canvasGO = new GameObject("DiagnosticsCanvas");
-        canvasGO.transform.SetParent(transform);
-        canvas = canvasGO.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 9999;
-
-        var scaler = canvasGO.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(390, 844);
-        scaler.matchWidthOrHeight = 0.5f;
-        canvasGO.AddComponent<GraphicRaycaster>();
-        canvasGroup = canvasGO.AddComponent<CanvasGroup>();
-        canvasGroup.blocksRaycasts = false;
-        canvasGroup.interactable = false;
-
-        var panelGO = new GameObject("Panel");
-        panelGO.transform.SetParent(canvasGO.transform, false);
-        var panelRT = panelGO.AddComponent<RectTransform>();
-        panelRT.anchorMin = new Vector2(0f, 0f);
-        panelRT.anchorMax = new Vector2(0f, 1f);
-        panelRT.pivot = new Vector2(0f, 0.5f);
-        panelRT.anchoredPosition = new Vector2(4f, 0f);
-        panelRT.sizeDelta = new Vector2(220f, -8f);
-        var panelImg = panelGO.AddComponent<Image>();
-        panelImg.color = new Color(0.02f, 0.02f, 0.06f, 0.88f);
-        panelImg.raycastTarget = false;
-
-        var beatIndicatorGO = new GameObject("BeatFlash");
-        beatIndicatorGO.transform.SetParent(panelGO.transform, false);
-        var beatRT = beatIndicatorGO.AddComponent<RectTransform>();
-        beatRT.anchorMin = new Vector2(1f, 1f);
-        beatRT.anchorMax = new Vector2(1f, 1f);
-        beatRT.pivot = new Vector2(1f, 1f);
-        beatRT.anchoredPosition = new Vector2(-6f, -6f);
-        beatRT.sizeDelta = new Vector2(14f, 14f);
-        beatFlash = beatIndicatorGO.AddComponent<Image>();
-        beatFlash.color = new Color(0.3f, 0.3f, 0.3f, 0.4f);
-        beatFlash.raycastTarget = false;
-
-        var textGO = new GameObject("OutputText");
-        textGO.transform.SetParent(panelGO.transform, false);
-        var textRT = textGO.AddComponent<RectTransform>();
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.offsetMin = new Vector2(8f, 8f);
-        textRT.offsetMax = new Vector2(-8f, -8f);
-        outputText = textGO.AddComponent<TextMeshProUGUI>();
-        outputText.fontSize = 11f;
-        outputText.color = new Color(0.85f, 0.88f, 1f);
-        outputText.richText = true;
-        outputText.overflowMode = TextOverflowModes.Overflow;
-        outputText.raycastTarget = false;
-        outputText.text = "Loading...";
+        string ext = extra.Length > 0 ? $"  ({extra})" : "";
+        log.Add($"  {(ok ? "[OK]" : "[MISSING]")} {label}{ext}");
     }
 }
