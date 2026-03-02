@@ -104,15 +104,14 @@ public class RingController : MonoBehaviour
         if (AudioManager.Instance != null)
         {
             float low = AudioManager.Instance.LowFreqValue;
-            musicPulseSmooth = Mathf.Lerp(musicPulseSmooth, low, Time.deltaTime * 20f);
+            musicPulseSmooth = Mathf.Lerp(musicPulseSmooth, low, Time.deltaTime * 12f);
 
             if (CurrentState == RingState.Spinning)
             {
-                float scale = 1f + musicPulseSmooth * 0.022f;
-                var myRT = GetComponent<RectTransform>();
-                myRT.localScale = new Vector3(scale, scale, 1f);
+                float scale = 1f + musicPulseSmooth * 0.08f;
+                GetComponent<RectTransform>().localScale = new Vector3(scale, scale, 1f);
 
-                float glowA = musicPulseSmooth * 0.2f;
+                float glowA = musicPulseSmooth * 0.35f;
                 ringGlowImage.color = new Color(baseRingColor.r, baseRingColor.g, baseRingColor.b, glowA);
             }
         }
