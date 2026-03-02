@@ -101,20 +101,7 @@ public class RingController : MonoBehaviour
         if (symbolIconRect != null)
             symbolIconRect.rotation = Quaternion.identity;
 
-        if (AudioManager.Instance != null)
-        {
-            float low = AudioManager.Instance.LowFreqValue;
-            musicPulseSmooth = Mathf.Lerp(musicPulseSmooth, low, Time.deltaTime * 12f);
-
-            if (CurrentState == RingState.Spinning)
-            {
-                float scale = 1f + musicPulseSmooth * 0.08f;
-                GetComponent<RectTransform>().localScale = new Vector3(scale, scale, 1f);
-
-                float glowA = musicPulseSmooth * 0.35f;
-                ringGlowImage.color = new Color(baseRingColor.r, baseRingColor.g, baseRingColor.b, glowA);
-            }
-        }
+        // пульсация управляется через BeatPulse() — вызывается от AudioManager.OnBeat
     }
 
     public void SetHighlighted(bool highlighted)
@@ -198,6 +185,19 @@ public class RingController : MonoBehaviour
     public void SpeedUp(float multiplier)
     {
         rotationSpeed *= multiplier;
+    }
+
+    public void BeatPulse()
+    {
+        if (CurrentState != RingState.Spinning) return;
+        var myRT = GetComponent<RectTransform>();
+        myRT.DOKill(false);
+        myRT.DOPunchScale(Vector3.one * 0.15f, 0.25f, 4, 0.5f);
+
+        float glowA = 0.45f;
+        ringGlowImage.DOKill(false);
+        ringGlowImage.DOColor(new Color(baseRingColor.r, baseRingColor.g, baseRingColor.b, glowA), 0.05f)
+            .OnComplete(() => ringGlowImage.DOFade(0f, 0.2f));
     }
 
     public void ResetForNewCycle()

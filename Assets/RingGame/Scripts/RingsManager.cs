@@ -230,4 +230,9 @@ public class RingsManager : MonoBehaviour
             ring.ResetForNewCycle();
     }
 
+    public void OnBeat()
+    {
+        foreach (var ring in activeRings)
+            ring.BeatPulse();
+    }
 }

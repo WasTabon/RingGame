@@ -34,8 +34,19 @@ public class RhythmPhaseController : MonoBehaviour
         UnsubscribeFromEvents();
     }
 
+    private void OnAudioBeat()
+    {
+        if (!phaseActive) return;
+        RingsManager.Instance?.OnBeat();
+    }
+
     private void SubscribeToEvents()
     {
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.OnBeat -= OnAudioBeat;
+            AudioManager.Instance.OnBeat += OnAudioBeat;
+        }
         if (BeatSequencer.Instance != null)
         {
             BeatSequencer.Instance.OnBeatCue -= OnBeatCue;
@@ -54,6 +65,8 @@ public class RhythmPhaseController : MonoBehaviour
 
     private void UnsubscribeFromEvents()
     {
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.OnBeat -= OnAudioBeat;
         if (BeatSequencer.Instance != null)
         {
             BeatSequencer.Instance.OnBeatCue -= OnBeatCue;
