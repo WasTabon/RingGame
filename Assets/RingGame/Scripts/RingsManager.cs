@@ -223,4 +223,11 @@ public class RingsManager : MonoBehaviour
         ringsContainer.DOScale(1f, 0.6f).SetEase(Ease.OutBack);
         if (cg != null) cg.DOFade(1f, 0.4f);
     }
+
+    public void ResetCapturedRings()
+    {
+        foreach (var ring in activeRings)
+            ring.ResetForNewCycle();
+    }
+
 }
