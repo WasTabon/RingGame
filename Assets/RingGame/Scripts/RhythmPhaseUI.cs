@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using DG.Tweening;
 using System.Collections;
+using System.Collections.Generic;
 
 public class RhythmPhaseUI : MonoBehaviour
 {
@@ -30,9 +31,12 @@ public class RhythmPhaseUI : MonoBehaviour
     [Header("Cycle Flash")]
     [SerializeField] private Image flashOverlay;
 
-    [Header("Grid Placeholder")]
+    [Header("Symbol Grid")]
     [SerializeField] private RectTransform gridArea;
     [SerializeField] private CanvasGroup gridGroup;
+    [SerializeField] private Image[] gridCellBgs;
+    [SerializeField] private Image[] gridCellIcons;
+    [SerializeField] private SymbolConfig gridSymbolConfig;
 
     [Header("Dev Back Button")]
     [SerializeField] private Button backButton;
@@ -43,6 +47,11 @@ public class RhythmPhaseUI : MonoBehaviour
     private static readonly Color HitColor = new Color(0.3f, 1f, 0.55f);
     private static readonly Color MissColor = new Color(1f, 0.28f, 0.28f);
     private static readonly Color CycleColor = new Color(1f, 0.82f, 0.15f);
+    private static readonly Color GridMatchColor = new Color(1f, 0.82f, 0.15f);
+    private static readonly Color GridDefaultBg = new Color(0.15f, 0.13f, 0.28f, 0.85f);
+
+    private int nextGridSlot;
+    private SymbolConfig.SymbolType?[] capturedInGrid;
 
     private void Start()
     {
@@ -181,9 +190,127 @@ public class RhythmPhaseUI : MonoBehaviour
 
     public void ShowCapturedSymbol(int ringIndex, SymbolConfig.SymbolType symbol)
     {
-        if (RingsManager.Instance == null) return;
-        var rings = RingsManager.Instance.ActiveRings;
-        if (ringIndex >= rings.Count) return;
+        if (gridCellBgs == null || gridCellIcons == null) return;
+        if (nextGridSlot >= gridCellBgs.Length) return;
+
+        int slot = nextGridSlot;
+        nextGridSlot++;
+        capturedInGrid[slot] = symbol;
+
+        var icon = gridCellIcons[slot];
+        var bg = gridCellBgs[slot];
+
+        if (gridSymbolConfig != null)
+        {
+            var sprite = gridSymbolConfig.GetIcon(symbol);
+            if (sprite != null) icon.sprite = sprite;
+        }
+
+        Color filledColor = GetCellFilledColor(symbol);
+
+        icon.color = new Color(1f, 1f, 1f, 0f);
+        icon.transform.localScale = Vector3.zero;
+
+        icon.DOFade(1f, 0.15f);
+        icon.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack);
+        bg.DOColor(filledColor, 0.2f);
+        bg.transform.DOPunchScale(Vector3.one * 0.15f, 0.25f, 5, 0.4f);
+
+        RefreshMatchHighlights();
+    }
+
+    public void ResetGrid()
+    {
+        nextGridSlot = 0;
+        int count = gridCellBgs != null ? gridCellBgs.Length : 16;
+        capturedInGrid = new SymbolConfig.SymbolType?[count];
+
+        if (gridCellBgs == null || gridCellIcons == null) return;
+
+        for (int i = 0; i < gridCellBgs.Length; i++)
+        {
+            if (gridCellBgs[i] != null)
+            {
+                gridCellBgs[i].DOKill();
+                gridCellBgs[i].color = GridDefaultBg;
+                gridCellBgs[i].transform.localScale = Vector3.one;
+            }
+            if (i < gridCellIcons.Length && gridCellIcons[i] != null)
+            {
+                gridCellIcons[i].DOKill();
+                gridCellIcons[i].sprite = null;
+                gridCellIcons[i].color = new Color(1f, 1f, 1f, 0f);
+                gridCellIcons[i].transform.localScale = Vector3.one;
+            }
+        }
+    }
+
+    private void RefreshMatchHighlights()
+    {
+        if (capturedInGrid == null || gridCellBgs == null) return;
+
+        var groups = new Dictionary<SymbolConfig.SymbolType, List<int>>();
+        var wildSlots = new List<int>();
+
+        for (int i = 0; i < capturedInGrid.Length; i++)
+        {
+            if (!capturedInGrid[i].HasValue) continue;
+            var sym = capturedInGrid[i].Value;
+            if (sym == SymbolConfig.SymbolType.Wild)
+            {
+                wildSlots.Add(i);
+                continue;
+            }
+            if (!groups.ContainsKey(sym))
+                groups[sym] = new List<int>();
+            groups[sym].Add(i);
+        }
+
+        var glowSlots = new HashSet<int>();
+
+        foreach (var kvp in groups)
+        {
+            if (kvp.Value.Count + wildSlots.Count >= 2)
+            {
+                foreach (int idx in kvp.Value)
+                    glowSlots.Add(idx);
+            }
+        }
+
+        if (glowSlots.Count > 0 || wildSlots.Count >= 2)
+        {
+            foreach (int idx in wildSlots)
+                glowSlots.Add(idx);
+        }
+
+        for (int i = 0; i < capturedInGrid.Length; i++)
+        {
+            if (!capturedInGrid[i].HasValue) continue;
+            var bg = gridCellBgs[i];
+            bg.DOKill();
+
+            if (glowSlots.Contains(i))
+            {
+                Color filledColor = GetCellFilledColor(capturedInGrid[i].Value);
+                var seq = DOTween.Sequence();
+                seq.Append(bg.DOColor(GridMatchColor, 0.12f).SetEase(Ease.OutQuad));
+                seq.Append(bg.DOColor(filledColor, 0.18f).SetEase(Ease.InQuad));
+                seq.Append(bg.DOColor(GridMatchColor, 0.12f).SetEase(Ease.OutQuad));
+                seq.Append(bg.DOColor(filledColor, 0.18f).SetEase(Ease.InQuad));
+                bg.transform.DOPunchScale(Vector3.one * 0.1f, 0.3f, 4, 0.4f);
+            }
+            else
+            {
+                bg.color = GetCellFilledColor(capturedInGrid[i].Value);
+            }
+        }
+    }
+
+    private Color GetCellFilledColor(SymbolConfig.SymbolType symbol)
+    {
+        if (gridSymbolConfig == null) return GridDefaultBg;
+        Color c = gridSymbolConfig.GetColor(symbol);
+        return new Color(c.r * 0.4f, c.g * 0.4f, c.b * 0.4f, 0.85f);
     }
 
     public void ShowCycleCompleteEffect(int cycleNumber)
