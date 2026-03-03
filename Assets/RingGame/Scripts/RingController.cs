@@ -23,6 +23,8 @@ public class RingController : MonoBehaviour
     private bool initialized;
     private float musicPulseSmooth;
 
+    private bool spawnComplete;
+    
     private static readonly Color HighlightColor = new Color(1f, 0.92f, 0.25f);
     private static readonly Color CapturedColor = new Color(0.25f, 1f, 0.55f);
     private static readonly Color MissedColor = new Color(1f, 0.25f, 0.25f);
@@ -75,13 +77,15 @@ public class RingController : MonoBehaviour
 
     private void PlaySpawnAnimation()
     {
+        spawnComplete = false;
         var myRT = GetComponent<RectTransform>();
         myRT.localScale = Vector3.zero;
         symbolIconRect.localScale = Vector3.zero;
 
         myRT.DOScale(1f, 0.5f)
             .SetEase(Ease.OutBack)
-            .SetDelay(Random.Range(0f, 0.12f));
+            .SetDelay(Random.Range(0f, 0.12f))
+            .OnComplete(() => spawnComplete = true);
 
         symbolIconRect.DOScale(1f, 0.4f)
             .SetEase(Ease.OutBack)
@@ -190,13 +194,13 @@ public class RingController : MonoBehaviour
     public void BeatPulse()
     {
         if (CurrentState != RingState.Spinning) return;
+        if (!spawnComplete) return;
         var myRT = GetComponent<RectTransform>();
         myRT.DOKill(false);
         myRT.DOPunchScale(Vector3.one * 0.15f, 0.25f, 4, 0.5f);
 
-        float glowA = 0.45f;
         ringGlowImage.DOKill(false);
-        ringGlowImage.DOColor(new Color(baseRingColor.r, baseRingColor.g, baseRingColor.b, glowA), 0.05f)
+        ringGlowImage.DOColor(new Color(baseRingColor.r, baseRingColor.g, baseRingColor.b, 0.45f), 0.05f)
             .OnComplete(() => ringGlowImage.DOFade(0f, 0.2f));
     }
 
