@@ -34,6 +34,7 @@ public class RhythmPhaseUI : MonoBehaviour
     [Header("Symbol Grid")]
     [SerializeField] private RectTransform gridArea;
     [SerializeField] private CanvasGroup gridGroup;
+    [SerializeField] private RectTransform gridCellsContainer;
     [SerializeField] private Image[] gridCellBgs;
     [SerializeField] private Image[] gridCellIcons;
     [SerializeField] private SymbolConfig gridSymbolConfig;
@@ -51,6 +52,7 @@ public class RhythmPhaseUI : MonoBehaviour
     private static readonly Color GridDefaultBg = new Color(0.15f, 0.13f, 0.28f, 0.85f);
 
     private int nextGridSlot;
+    private int visibleCells;
     private SymbolConfig.SymbolType?[] capturedInGrid;
 
     private void Start()
@@ -191,7 +193,7 @@ public class RhythmPhaseUI : MonoBehaviour
     public void ShowCapturedSymbol(int ringIndex, SymbolConfig.SymbolType symbol)
     {
         if (gridCellBgs == null || gridCellIcons == null) return;
-        if (nextGridSlot >= gridCellBgs.Length) return;
+        if (nextGridSlot >= visibleCells) return;
 
         int slot = nextGridSlot;
         nextGridSlot++;
@@ -219,19 +221,28 @@ public class RhythmPhaseUI : MonoBehaviour
         RefreshMatchHighlights();
     }
 
-    public void ResetGrid()
+    public void ResetGrid(int stage)
     {
+        if (gridGroup != null) gridGroup.alpha = 1f;
+        if (gridCellsContainer != null) gridCellsContainer.gameObject.SetActive(true);
+
+        int ringCount = stage + 1;
+        visibleCells = ringCount * 4;
         nextGridSlot = 0;
-        int count = gridCellBgs != null ? gridCellBgs.Length : 16;
-        capturedInGrid = new SymbolConfig.SymbolType?[count];
+
+        int totalCells = gridCellBgs != null ? gridCellBgs.Length : 20;
+        capturedInGrid = new SymbolConfig.SymbolType?[totalCells];
 
         if (gridCellBgs == null || gridCellIcons == null) return;
 
         for (int i = 0; i < gridCellBgs.Length; i++)
         {
+            bool visible = i < visibleCells;
+
             if (gridCellBgs[i] != null)
             {
                 gridCellBgs[i].DOKill();
+                gridCellBgs[i].gameObject.SetActive(visible);
                 gridCellBgs[i].color = GridDefaultBg;
                 gridCellBgs[i].transform.localScale = Vector3.one;
             }
@@ -243,6 +254,30 @@ public class RhythmPhaseUI : MonoBehaviour
                 gridCellIcons[i].transform.localScale = Vector3.one;
             }
         }
+
+        AdjustGridLayout(ringCount);
+    }
+
+    private void AdjustGridLayout(int rows)
+    {
+        if (gridCellsContainer == null) return;
+
+        var glg = gridCellsContainer.GetComponent<GridLayoutGroup>();
+        if (glg == null) return;
+
+        float containerHeight = gridArea != null ? gridArea.rect.height : 200f;
+        float containerWidth = gridArea != null ? gridArea.rect.width : 200f;
+
+        float availableHeight = containerHeight - glg.padding.top - glg.padding.bottom - (rows - 1) * glg.spacing.y;
+        float cellHeight = Mathf.Min(availableHeight / rows, 44f);
+
+        float availableWidth = containerWidth - glg.padding.left - glg.padding.right - 3f * glg.spacing.x;
+        float cellWidth = Mathf.Min(availableWidth / 4f, 44f);
+
+        float cellSize = Mathf.Min(cellWidth, cellHeight);
+        cellSize = Mathf.Max(cellSize, 24f);
+
+        glg.cellSize = new Vector2(cellSize, cellSize);
     }
 
     private void RefreshMatchHighlights()
@@ -252,7 +287,7 @@ public class RhythmPhaseUI : MonoBehaviour
         var groups = new Dictionary<SymbolConfig.SymbolType, List<int>>();
         var wildSlots = new List<int>();
 
-        for (int i = 0; i < capturedInGrid.Length; i++)
+        for (int i = 0; i < visibleCells && i < capturedInGrid.Length; i++)
         {
             if (!capturedInGrid[i].HasValue) continue;
             var sym = capturedInGrid[i].Value;
@@ -283,7 +318,7 @@ public class RhythmPhaseUI : MonoBehaviour
                 glowSlots.Add(idx);
         }
 
-        for (int i = 0; i < capturedInGrid.Length; i++)
+        for (int i = 0; i < visibleCells && i < capturedInGrid.Length; i++)
         {
             if (!capturedInGrid[i].HasValue) continue;
             var bg = gridCellBgs[i];

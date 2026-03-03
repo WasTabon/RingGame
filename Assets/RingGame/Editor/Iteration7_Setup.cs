@@ -3,7 +3,6 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
-using System.IO;
 using System.Collections.Generic;
 
 public class Iteration7_Setup : EditorWindow
@@ -19,7 +18,9 @@ public class Iteration7_Setup : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("Symbol Grid Setup (4×4 = 16 cells)", EditorStyles.boldLabel);
+        GUILayout.Label("Symbol Grid Setup (5×4 = 20 cells max)", EditorStyles.boldLabel);
+        GUILayout.Space(4);
+        GUILayout.Label("Stage 1: 2×4=8  |  Stage 2: 3×4=12  |  Stage 3: 4×4=16  |  Stage 4: 5×4=20", EditorStyles.miniLabel);
         GUILayout.Space(8);
 
         rhythmPhaseUI = (RhythmPhaseUI)EditorGUILayout.ObjectField(
@@ -31,9 +32,9 @@ public class Iteration7_Setup : EditorWindow
         GUILayout.Space(4);
 
         if (rhythmPhaseUI == null)
-            EditorGUILayout.HelpBox("Перетащи RhythmPhaseUI компонент из Inspector", MessageType.Warning);
+            EditorGUILayout.HelpBox("Drag RhythmPhaseUI component from Inspector", MessageType.Warning);
         if (gridParent == null)
-            EditorGUILayout.HelpBox("Перетащи GridArea из Hierarchy (RhythmPhaseCanvas → GridArea)", MessageType.Warning);
+            EditorGUILayout.HelpBox("Drag GridArea from Hierarchy (RhythmPhaseCanvas → GridArea)", MessageType.Warning);
 
         GUI.enabled = rhythmPhaseUI != null && gridParent != null;
 
@@ -60,9 +61,6 @@ public class Iteration7_Setup : EditorWindow
         foreach (var go in toDelete)
             DestroyImmediate(go);
 
-        var existingGLG = gridParent.GetComponent<GridLayoutGroup>();
-        if (existingGLG != null)
-            DestroyImmediate(existingGLG);
         var existingImage = gridParent.GetComponent<Image>();
         if (existingImage != null)
             existingImage.color = new Color(0.08f, 0.07f, 0.18f, 0.9f);
@@ -70,11 +68,10 @@ public class Iteration7_Setup : EditorWindow
         var cellsGO = new GameObject("GridCells");
         cellsGO.transform.SetParent(gridParent, false);
         var cellsRT = cellsGO.AddComponent<RectTransform>();
-        cellsRT.anchorMin = new Vector2(0.5f, 0.5f);
-        cellsRT.anchorMax = new Vector2(0.5f, 0.5f);
-        cellsRT.pivot = new Vector2(0.5f, 0.5f);
-        cellsRT.anchoredPosition = Vector2.zero;
-        cellsRT.sizeDelta = new Vector2(180f, 180f);
+        cellsRT.anchorMin = Vector2.zero;
+        cellsRT.anchorMax = Vector2.one;
+        cellsRT.offsetMin = Vector2.zero;
+        cellsRT.offsetMax = Vector2.zero;
 
         var glg = cellsGO.AddComponent<GridLayoutGroup>();
         glg.cellSize = new Vector2(38f, 38f);
@@ -82,14 +79,15 @@ public class Iteration7_Setup : EditorWindow
         glg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         glg.constraintCount = 4;
         glg.childAlignment = TextAnchor.MiddleCenter;
-        glg.padding = new RectOffset(2, 2, 2, 2);
+        glg.padding = new RectOffset(4, 4, 4, 4);
 
         var symbolBgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/RingGame/Textures/SymbolBg.png");
 
-        var bgs = new Image[16];
-        var icons = new Image[16];
+        int totalCells = 20;
+        var bgs = new Image[totalCells];
+        var icons = new Image[totalCells];
 
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < totalCells; i++)
         {
             var cellGO = new GameObject($"Cell_{i}");
             cellGO.transform.SetParent(cellsGO.transform, false);
@@ -117,14 +115,16 @@ public class Iteration7_Setup : EditorWindow
 
         var so = new SerializedObject(rhythmPhaseUI);
 
+        so.FindProperty("gridCellsContainer").objectReferenceValue = cellsRT;
+
         var bgsProp = so.FindProperty("gridCellBgs");
-        bgsProp.arraySize = 16;
-        for (int i = 0; i < 16; i++)
+        bgsProp.arraySize = totalCells;
+        for (int i = 0; i < totalCells; i++)
             bgsProp.GetArrayElementAtIndex(i).objectReferenceValue = bgs[i];
 
         var iconsProp = so.FindProperty("gridCellIcons");
-        iconsProp.arraySize = 16;
-        for (int i = 0; i < 16; i++)
+        iconsProp.arraySize = totalCells;
+        for (int i = 0; i < totalCells; i++)
             iconsProp.GetArrayElementAtIndex(i).objectReferenceValue = icons[i];
 
         var cfg = AssetDatabase.LoadAssetAtPath<SymbolConfig>("Assets/RingGame/Data/SymbolConfig.asset");
@@ -135,9 +135,11 @@ public class Iteration7_Setup : EditorWindow
         EditorUtility.SetDirty(rhythmPhaseUI);
         EditorSceneManager.MarkSceneDirty(rhythmPhaseUI.gameObject.scene);
 
-        Debug.Log("[Iter7] Symbol Grid created: 16 cells (4×4) with icons. Save scene (Ctrl+S).");
+        Debug.Log("[Iter7] Symbol Grid created: 20 cells (5×4 max). Visible cells adjust per stage. Save scene (Ctrl+S).");
         EditorUtility.DisplayDialog("Done",
-            "Symbol Grid created.\n16 cells (4×4) wired to RhythmPhaseUI.\n\nSave scene (Ctrl+S).", "OK");
+            "Symbol Grid created.\n20 cells (5×4) wired to RhythmPhaseUI.\n\n" +
+            "Stage 1: 8 visible\nStage 2: 12 visible\nStage 3: 16 visible\nStage 4: 20 visible\n\n" +
+            "Save scene (Ctrl+S).", "OK");
     }
 
     [MenuItem("RingGame/Iteration 7/Validate & Fix")]
@@ -149,24 +151,28 @@ public class Iteration7_Setup : EditorWindow
         var ui = Object.FindObjectOfType<RhythmPhaseUI>(true);
         if (ui == null)
         {
-            Debug.LogWarning("[Iter7] ⚠️ RhythmPhaseUI not found.");
+            Debug.LogWarning("[Iter7] RhythmPhaseUI not found.");
             return;
         }
 
         var so = new SerializedObject(ui);
 
-        bool hasBgs = PropArrayValid(so, "gridCellBgs", 16);
-        bool hasIcons = PropArrayValid(so, "gridCellIcons", 16);
+        bool hasBgs = PropArrayValid(so, "gridCellBgs", 20);
+        bool hasIcons = PropArrayValid(so, "gridCellIcons", 20);
+        bool hasContainer = PropReal<RectTransform>(so, "gridCellsContainer");
 
         if (!hasBgs || !hasIcons)
-        {
-            Debug.LogWarning("[Iter7] ⚠️ gridCellBgs or gridCellIcons not fully assigned — run Setup Symbol Grid.");
-        }
+            Debug.LogWarning("[Iter7] gridCellBgs or gridCellIcons not fully assigned (expected 20) — run Setup Symbol Grid.");
         else
         {
-            Debug.Log("[Iter7] ✓ gridCellBgs (16 elements)");
-            Debug.Log("[Iter7] ✓ gridCellIcons (16 elements)");
+            Debug.Log("[Iter7] ✓ gridCellBgs (20 elements)");
+            Debug.Log("[Iter7] ✓ gridCellIcons (20 elements)");
         }
+
+        if (!hasContainer)
+            Debug.LogWarning("[Iter7] gridCellsContainer not assigned — run Setup Symbol Grid.");
+        else
+            Debug.Log("[Iter7] ✓ gridCellsContainer");
 
         if (!PropReal<SymbolConfig>(so, "gridSymbolConfig"))
         {
@@ -179,14 +185,10 @@ public class Iteration7_Setup : EditorWindow
                 fixed_++;
             }
             else
-            {
-                Debug.LogWarning("[Iter7] ⚠️ gridSymbolConfig is null and SymbolConfig.asset not found.");
-            }
+                Debug.LogWarning("[Iter7] gridSymbolConfig is null and SymbolConfig.asset not found.");
         }
         else
-        {
             Debug.Log("[Iter7] ✓ gridSymbolConfig");
-        }
 
         var ctrl = Object.FindObjectOfType<RhythmPhaseController>(true);
         if (ctrl != null)
@@ -200,9 +202,7 @@ public class Iteration7_Setup : EditorWindow
                 fixed_++;
             }
             else
-            {
                 Debug.Log("[Iter7] ✓ RhythmPhaseController.rhythmPhaseUI");
-            }
         }
 
         var gridArea = so.FindProperty("gridArea");
@@ -227,9 +227,7 @@ public class Iteration7_Setup : EditorWindow
                     fixed_++;
                 }
                 else
-                {
                     Debug.Log("[Iter7] ✓ No raycast blockers in grid");
-                }
             }
         }
 
@@ -239,16 +237,16 @@ public class Iteration7_Setup : EditorWindow
             Debug.Log($"[Iter7 Validate] Fixed {fixed_} issue(s). Save scene.");
         }
         else
-        {
             Debug.Log("[Iter7 Validate] ✅ No issues found.");
-        }
 
         Debug.Log("[Iter7 Validate] ══════════════════════════════");
     }
 
     static bool PropReal<T>(SerializedObject so, string name) where T : Object
     {
-        var obj = so.FindProperty(name).objectReferenceValue as T;
+        var prop = so.FindProperty(name);
+        if (prop == null) return false;
+        var obj = prop.objectReferenceValue as T;
         if (obj == null) return false;
         if (obj is Component c) return c.gameObject != null;
         return true;

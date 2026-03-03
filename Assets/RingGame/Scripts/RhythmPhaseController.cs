@@ -98,7 +98,7 @@ public class RhythmPhaseController : MonoBehaviour
         remainingAttempts = AttemptsPerCycle;
 
         rhythmPhaseUI?.Show();
-        rhythmPhaseUI?.ResetGrid();
+        rhythmPhaseUI?.ResetGrid(currentStage);
         rhythmPhaseUI?.UpdateCycleDisplay(currentCycle, TotalCycles, false);
         rhythmPhaseUI?.UpdateAttempts(remainingAttempts, false);
 
