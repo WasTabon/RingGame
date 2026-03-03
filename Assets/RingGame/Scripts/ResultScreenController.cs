@@ -7,6 +7,9 @@ public class ResultScreenController : MonoBehaviour
 
     [SerializeField] private ResultScreenUI resultScreenUI;
 
+    private PayoutCalculator.PayoutResult lastPayout;
+    private int lastStage;
+
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -15,12 +18,16 @@ public class ResultScreenController : MonoBehaviour
 
     public void ShowResult(List<SymbolConfig.SymbolType?> capturedSymbols, float betAmount, int stage)
     {
-        var payout = PayoutCalculator.Calculate(capturedSymbols, betAmount);
+        lastStage = stage;
+        lastPayout = PayoutCalculator.Calculate(capturedSymbols, betAmount);
 
-        if (payout.isWin && payout.totalPayout > 0f)
-            BalanceManager.Instance?.AddBalance(payout.totalPayout);
+        if (lastPayout.isWin && lastPayout.totalPayout > 0f)
+        {
+            BalanceManager.Instance?.AddBalance(lastPayout.totalPayout);
+            StageManager.Instance?.AdvanceStage();
+        }
 
-        resultScreenUI?.Show(capturedSymbols, payout, betAmount, stage);
+        resultScreenUI?.Show(capturedSymbols, lastPayout, betAmount, stage);
     }
 
     public void OnPlayAgain()

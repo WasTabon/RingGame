@@ -44,6 +44,13 @@ public class RingsManager : MonoBehaviour
     public void SetupForStage(int stage)
     {
         stage = Mathf.Clamp(stage, 1, 4);
+    
+        if (ringsContainer != null)
+        {
+            ringsContainer.DOKill();
+            ringsContainer.localScale = Vector3.one;
+        }
+    
         ClearRings();
         int ringCount = stage + 1;
         SpawnRings(ringCount, stage);

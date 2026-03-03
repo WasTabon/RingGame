@@ -39,6 +39,10 @@ public class BetScreenUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI startBtnText;
     [SerializeField] private Image startBtnImage;
 
+    [Header("Stage Display")]
+    [SerializeField] private TMPro.TextMeshProUGUI stageLabel;
+    [SerializeField] private TMPro.TextMeshProUGUI stageRingsLabel;
+
     [Header("Bet Slider Visual")]
     [SerializeField] private RectTransform sliderFill;
     [SerializeField] private RectTransform sliderTrack;
@@ -58,6 +62,7 @@ public class BetScreenUI : MonoBehaviour
         UpdateBetDisplay(BetManager.Instance.CurrentBet, false);
         UpdateSlider(false);
         UpdateStartButton(false);
+        UpdateStageDisplay(false);
         PlayEnterAnimation();
     }
 
@@ -88,6 +93,11 @@ public class BetScreenUI : MonoBehaviour
             BetManager.Instance.OnBetChanged -= OnBetChanged;
             BetManager.Instance.OnBetChanged += OnBetChanged;
         }
+        if (StageManager.Instance != null)
+        {
+            StageManager.Instance.OnStageChanged -= OnStageChanged;
+            StageManager.Instance.OnStageChanged += OnStageChanged;
+        }
     }
 
     private void UnsubscribeFromEvents()
@@ -96,6 +106,8 @@ public class BetScreenUI : MonoBehaviour
             BalanceManager.Instance.OnBalanceChanged -= OnBalanceChanged;
         if (BetManager.Instance != null)
             BetManager.Instance.OnBetChanged -= OnBetChanged;
+        if (StageManager.Instance != null)
+            StageManager.Instance.OnStageChanged -= OnStageChanged;
     }
 
     private void SetupListeners()
@@ -123,6 +135,7 @@ public class BetScreenUI : MonoBehaviour
         UpdateBetDisplay(BetManager.Instance.CurrentBet, false);
         UpdateSlider(false);
         UpdateStartButton(false);
+        UpdateStageDisplay(true);
         PlayEnterAnimation();
     }
     
@@ -296,6 +309,30 @@ public class BetScreenUI : MonoBehaviour
                             RhythmPhaseController.Instance.ActivatePhaseFromBet();
                         });
                     }));
+    }
+
+    private void OnStageChanged(int stage)
+    {
+        UpdateStageDisplay(true);
+    }
+
+    private void UpdateStageDisplay(bool animate)
+    {
+        if (StageManager.Instance == null) return;
+        int stage = StageManager.Instance.CurrentStage;
+        int rings = StageManager.Instance.GetRingCountForStage(stage);
+
+        if (stageLabel != null)
+        {
+            stageLabel.text = $"STAGE {stage}";
+            if (animate)
+            {
+                stageLabel.rectTransform.DOKill();
+                stageLabel.rectTransform.DOPunchScale(Vector3.one * 0.15f, 0.25f, 5, 0.4f);
+            }
+        }
+        if (stageRingsLabel != null)
+            stageRingsLabel.text = $"{rings} RINGS";
     }
 
     private string FormatCurrency(float value)
