@@ -119,6 +119,14 @@ public class RhythmPhaseController : MonoBehaviour
     private void OnBeatCue(int ringIndex)
     {
         if (!phaseActive) return;
+
+        var ring = RingsManager.Instance?.ActiveRings[ringIndex];
+        if (ring != null && ring.CurrentState == RingController.RingState.Captured)
+        {
+            BeatSequencer.Instance?.RegisterHit();
+            return;
+        }
+
         RingsManager.Instance?.HighlightRing(ringIndex, true);
         rhythmPhaseUI?.ShowShrinkingRing(ringIndex, BeatSequencer.Instance.GetWindowDuration());
         rhythmPhaseUI?.PulseBeatFeedback();
@@ -203,10 +211,14 @@ public class RhythmPhaseController : MonoBehaviour
         TapInputHandler.Instance?.SetActive(false);
         BeatSequencer.Instance?.StopSequence();
 
+        var symbols = new List<SymbolConfig.SymbolType?>(capturedSymbols);
+        float bet = BetManager.Instance != null ? BetManager.Instance.CurrentBet : 0f;
+
         rhythmPhaseUI?.ShowPhaseComplete(() =>
         {
             GameManager.Instance.SetState(GameManager.GameState.ResultScreen);
             rhythmPhaseUI?.Hide();
+            ResultScreenController.Instance?.ShowResult(symbols, bet, currentStage);
         });
     }
 

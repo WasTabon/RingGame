@@ -202,9 +202,7 @@ public class RingController : MonoBehaviour
 
     public void ResetForNewCycle()
     {
-        if (CurrentState == RingState.Captured || CurrentState == RingState.Stopped) return;
         CurrentState = RingState.Spinning;
-
         ringBodyImage.DOColor(baseRingColor, 0.3f);
         ringGlowImage.DOFade(0f, 0.2f);
         var myRT = GetComponent<RectTransform>();
