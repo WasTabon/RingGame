@@ -15,6 +15,11 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField] private CanvasGroup buttonsGroup;
     [SerializeField] private Button playButton;
     [SerializeField] private RectTransform playButtonRect;
+    [SerializeField] private Button settingsButton;
+
+    [Header("Panels")]
+    [SerializeField] private SettingsUI settingsUI;
+    [SerializeField] private TutorialUI tutorialUI;
 
     [Header("Background Rings")]
     [SerializeField] private RectTransform[] bgRingVisuals;
@@ -31,6 +36,13 @@ public class MainMenuUI : MonoBehaviour
         canInteract = false;
         playButton.onClick.RemoveAllListeners();
         playButton.onClick.AddListener(OnPlayClicked);
+
+        if (settingsButton != null)
+        {
+            settingsButton.onClick.RemoveAllListeners();
+            settingsButton.onClick.AddListener(OnSettingsClicked);
+        }
+
         PlayIntroAnimation();
         StartBgAnimation();
     }
@@ -89,7 +101,17 @@ public class MainMenuUI : MonoBehaviour
                 {
                     canInteract = true;
                     StartPlayButtonPulse();
+                    CheckFirstLaunch();
                 });
+        }
+    }
+
+    private void CheckFirstLaunch()
+    {
+        if (SettingsManager.Instance != null && !SettingsManager.Instance.TutorialDone)
+        {
+            if (tutorialUI != null)
+                tutorialUI.Show(null);
         }
     }
 
@@ -141,5 +163,11 @@ public class MainMenuUI : MonoBehaviour
                 playButtonRect.DOScale(1.06f, 0.13f)
                     .SetEase(Ease.OutBack)
                     .OnComplete(() => GameManager.Instance.GoToGame()));
+    }
+
+    private void OnSettingsClicked()
+    {
+        if (!canInteract) return;
+        settingsUI?.Show();
     }
 }
