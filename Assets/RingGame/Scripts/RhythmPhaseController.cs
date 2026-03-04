@@ -214,11 +214,14 @@ public class RhythmPhaseController : MonoBehaviour
         float bet = BetManager.Instance != null ? BetManager.Instance.CurrentBet : 0f;
         int stage = currentStage;
 
-        rhythmPhaseUI?.ShowPhaseComplete(() =>
+        rhythmPhaseUI?.PlayComboReveal(() =>
         {
-            GameManager.Instance.SetState(GameManager.GameState.ResultScreen);
-            rhythmPhaseUI?.Hide();
-            ResultScreenController.Instance?.ShowResult(symbols, bet, stage);
+            rhythmPhaseUI?.ShowPhaseComplete(() =>
+            {
+                GameManager.Instance.SetState(GameManager.GameState.ResultScreen);
+                rhythmPhaseUI?.Hide();
+                ResultScreenController.Instance?.ShowResult(symbols, bet, stage);
+            });
         });
     }
 

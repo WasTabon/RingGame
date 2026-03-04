@@ -4,6 +4,7 @@ using TMPro;
 using DG.Tweening;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public class RhythmPhaseUI : MonoBehaviour
 {
@@ -39,10 +40,15 @@ public class RhythmPhaseUI : MonoBehaviour
     [SerializeField] private Image[] gridCellIcons;
     [SerializeField] private SymbolConfig gridSymbolConfig;
 
+    [Header("Combo Lines")]
+    [SerializeField] private RectTransform lineContainer;
+    [SerializeField] private TextMeshProUGUI comboLabel;
+
     [Header("Dev Back Button")]
     [SerializeField] private Button backButton;
 
     private Coroutine shrinkCoroutine;
+    private Coroutine comboRevealCoroutine;
     private Tween feedbackTween;
 
     private static readonly Color HitColor = new Color(0.3f, 1f, 0.55f);
@@ -51,9 +57,13 @@ public class RhythmPhaseUI : MonoBehaviour
     private static readonly Color GridMatchColor = new Color(1f, 0.82f, 0.15f);
     private static readonly Color GridDefaultBg = new Color(0.15f, 0.13f, 0.28f, 0.85f);
 
+    private const float LineThickness = 3.5f;
+    private const float ComboLineThickness = 5f;
+
     private int nextGridSlot;
     private int visibleCells;
     private SymbolConfig.SymbolType?[] capturedInGrid;
+    private List<GameObject> activeLines = new List<GameObject>();
 
     private void Start()
     {
@@ -66,6 +76,7 @@ public class RhythmPhaseUI : MonoBehaviour
         if (shrinkingRing != null) shrinkingRing.gameObject.SetActive(false);
         if (feedbackText != null) feedbackText.alpha = 0f;
         if (flashOverlay != null) flashOverlay.color = new Color(1f, 1f, 1f, 0f);
+        if (comboLabel != null) comboLabel.alpha = 0f;
     }
 
     public void Show()
@@ -82,6 +93,7 @@ public class RhythmPhaseUI : MonoBehaviour
     {
         if (!gameObject.activeSelf) return;
         StopShrinkCoroutine();
+        StopComboReveal();
         rootGroup.DOFade(0f, 0.22f).OnComplete(() => gameObject.SetActive(false));
     }
 
@@ -226,6 +238,10 @@ public class RhythmPhaseUI : MonoBehaviour
         if (gridGroup != null) gridGroup.alpha = 1f;
         if (gridCellsContainer != null) gridCellsContainer.gameObject.SetActive(true);
 
+        StopComboReveal();
+        ClearLines();
+        if (comboLabel != null) comboLabel.alpha = 0f;
+
         int ringCount = stage + 1;
         visibleCells = ringCount * 4;
         nextGridSlot = 0;
@@ -280,9 +296,16 @@ public class RhythmPhaseUI : MonoBehaviour
         glg.cellSize = new Vector2(cellSize, cellSize);
     }
 
-    private void RefreshMatchHighlights()
+    private struct ComboGroup
     {
-        if (capturedInGrid == null || gridCellBgs == null) return;
+        public SymbolConfig.SymbolType symbol;
+        public List<int> slots;
+        public int countWithWilds;
+    }
+
+    private List<ComboGroup> BuildComboGroups()
+    {
+        if (capturedInGrid == null) return new List<ComboGroup>();
 
         var groups = new Dictionary<SymbolConfig.SymbolType, List<int>>();
         var wildSlots = new List<int>();
@@ -301,28 +324,55 @@ public class RhythmPhaseUI : MonoBehaviour
             groups[sym].Add(i);
         }
 
-        var glowSlots = new HashSet<int>();
-
+        var result = new List<ComboGroup>();
         foreach (var kvp in groups)
         {
-            if (kvp.Value.Count + wildSlots.Count >= 2)
+            int total = kvp.Value.Count + wildSlots.Count;
+            if (total < 2) continue;
+
+            var allSlots = new List<int>(kvp.Value);
+            allSlots.AddRange(wildSlots);
+            allSlots.Sort();
+
+            result.Add(new ComboGroup
             {
-                foreach (int idx in kvp.Value)
-                    glowSlots.Add(idx);
-            }
+                symbol = kvp.Key,
+                slots = allSlots,
+                countWithWilds = total
+            });
         }
 
-        if (glowSlots.Count > 0 || wildSlots.Count >= 2)
+        if (result.Count == 0 && wildSlots.Count >= 2)
         {
-            foreach (int idx in wildSlots)
-                glowSlots.Add(idx);
+            result.Add(new ComboGroup
+            {
+                symbol = SymbolConfig.SymbolType.Wild,
+                slots = wildSlots,
+                countWithWilds = wildSlots.Count
+            });
         }
+
+        return result;
+    }
+
+    private void RefreshMatchHighlights()
+    {
+        if (capturedInGrid == null || gridCellBgs == null) return;
+
+        ClearLines();
+
+        var combos = BuildComboGroups();
+        var glowSlots = new HashSet<int>();
+        foreach (var combo in combos)
+            foreach (int idx in combo.slots)
+                glowSlots.Add(idx);
 
         for (int i = 0; i < visibleCells && i < capturedInGrid.Length; i++)
         {
             if (!capturedInGrid[i].HasValue) continue;
             var bg = gridCellBgs[i];
             bg.DOKill();
+            bg.transform.DOKill();
 
             if (glowSlots.Contains(i))
             {
@@ -338,6 +388,240 @@ public class RhythmPhaseUI : MonoBehaviour
             {
                 bg.color = GetCellFilledColor(capturedInGrid[i].Value);
             }
+        }
+
+        foreach (var combo in combos)
+        {
+            Color lineColor = gridSymbolConfig != null
+                ? gridSymbolConfig.GetColor(combo.symbol)
+                : Color.yellow;
+            lineColor.a = 0.8f;
+
+            DrawLinesForGroup(combo.slots, lineColor);
+        }
+
+        if (combos.Count > 0)
+            ShowComboLabel(combos);
+    }
+
+    private void DrawLinesForGroup(List<int> slots, Color color)
+    {
+        if (lineContainer == null || slots.Count < 2) return;
+
+        for (int i = 0; i < slots.Count - 1; i++)
+        {
+            int a = slots[i];
+            int b = slots[i + 1];
+            if (a >= gridCellBgs.Length || b >= gridCellBgs.Length) continue;
+            if (gridCellBgs[a] == null || gridCellBgs[b] == null) continue;
+
+            DrawLine(gridCellBgs[a].rectTransform, gridCellBgs[b].rectTransform, color, LineThickness);
+        }
+    }
+
+    private void DrawLine(RectTransform from, RectTransform to, Color color, float thickness)
+    {
+        if (lineContainer == null) return;
+
+        var lineGO = new GameObject("ComboLine");
+        lineGO.transform.SetParent(lineContainer, false);
+
+        var img = lineGO.AddComponent<Image>();
+        img.color = new Color(color.r, color.g, color.b, 0f);
+        img.raycastTarget = false;
+
+        var rt = lineGO.GetComponent<RectTransform>();
+
+        Vector2 localFrom = WorldToLocal(lineContainer, from.position);
+        Vector2 localTo = WorldToLocal(lineContainer, to.position);
+
+        Vector2 dir = localTo - localFrom;
+        float distance = dir.magnitude;
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0f, 0.5f);
+        rt.anchoredPosition = localFrom;
+        rt.sizeDelta = new Vector2(distance, thickness);
+        rt.localRotation = Quaternion.Euler(0f, 0f, angle);
+
+        img.DOFade(color.a, 0.15f).SetEase(Ease.OutQuad);
+
+        activeLines.Add(lineGO);
+    }
+
+    private Vector2 WorldToLocal(RectTransform parent, Vector3 worldPos)
+    {
+        Vector2 localPoint;
+        var canvas = parent.GetComponentInParent<Canvas>();
+        Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(cam, worldPos);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, screenPoint, cam, out localPoint);
+        return localPoint;
+    }
+
+    private void ClearLines()
+    {
+        foreach (var line in activeLines)
+        {
+            if (line != null) Destroy(line);
+        }
+        activeLines.Clear();
+    }
+
+    private void ShowComboLabel(List<ComboGroup> combos)
+    {
+        if (comboLabel == null) return;
+
+        var best = combos.OrderByDescending(c => c.countWithWilds).First();
+        string symName = best.symbol.ToString().ToUpper();
+        comboLabel.text = $"{best.countWithWilds}x {symName}";
+
+        Color symColor = gridSymbolConfig != null ? gridSymbolConfig.GetColor(best.symbol) : Color.yellow;
+        comboLabel.color = new Color(symColor.r, symColor.g, symColor.b, 0f);
+
+        comboLabel.DOKill();
+        comboLabel.rectTransform.DOKill();
+
+        var seq = DOTween.Sequence();
+        seq.Append(comboLabel.DOFade(1f, 0.12f));
+        seq.Join(comboLabel.rectTransform.DOPunchScale(Vector3.one * 0.2f, 0.25f, 5, 0.4f));
+        seq.AppendInterval(0.6f);
+        seq.Append(comboLabel.DOFade(0f, 0.2f));
+    }
+
+    public void PlayComboReveal(System.Action onComplete)
+    {
+        StopComboReveal();
+        var combos = BuildComboGroups();
+
+        if (combos.Count == 0)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        comboRevealCoroutine = StartCoroutine(ComboRevealSequence(combos, onComplete));
+    }
+
+    private IEnumerator ComboRevealSequence(List<ComboGroup> combos, System.Action onComplete)
+    {
+        ClearLines();
+        if (comboLabel != null) comboLabel.alpha = 0f;
+
+        for (int i = 0; i < visibleCells && i < capturedInGrid.Length; i++)
+        {
+            if (!capturedInGrid[i].HasValue) continue;
+            if (gridCellBgs[i] != null)
+            {
+                gridCellBgs[i].DOKill();
+                gridCellBgs[i].color = GetCellFilledColor(capturedInGrid[i].Value);
+            }
+        }
+
+        yield return new WaitForSeconds(0.2f);
+
+        combos.Sort((a, b) => b.countWithWilds.CompareTo(a.countWithWilds));
+
+        foreach (var combo in combos)
+        {
+            ClearLines();
+
+            Color symColor = gridSymbolConfig != null
+                ? gridSymbolConfig.GetColor(combo.symbol)
+                : Color.yellow;
+
+            foreach (int idx in combo.slots)
+            {
+                if (idx >= gridCellBgs.Length || gridCellBgs[idx] == null) continue;
+                var bg = gridCellBgs[idx];
+                bg.DOKill();
+                bg.transform.DOKill();
+
+                bg.DOColor(GridMatchColor, 0.15f);
+                bg.transform.DOPunchScale(Vector3.one * 0.15f, 0.3f, 5, 0.4f);
+            }
+
+            Color lineColor = new Color(symColor.r, symColor.g, symColor.b, 0.9f);
+            DrawLinesForGroup(combo.slots, lineColor, ComboLineThickness);
+
+            if (comboLabel != null)
+            {
+                string symName = combo.symbol.ToString().ToUpper();
+                float mult = GetPreviewMultiplier(combo.symbol, combo.countWithWilds);
+                comboLabel.text = mult > 0f
+                    ? $"{combo.countWithWilds}x {symName} = {mult:F1}x"
+                    : $"{combo.countWithWilds}x {symName}";
+                comboLabel.color = new Color(symColor.r, symColor.g, symColor.b, 0f);
+
+                comboLabel.DOKill();
+                comboLabel.rectTransform.DOKill();
+                comboLabel.DOFade(1f, 0.12f);
+                comboLabel.rectTransform.DOPunchScale(Vector3.one * 0.25f, 0.3f, 5, 0.4f);
+            }
+
+            yield return new WaitForSeconds(1.2f);
+
+            foreach (int idx in combo.slots)
+            {
+                if (idx >= gridCellBgs.Length || gridCellBgs[idx] == null) continue;
+                gridCellBgs[idx].DOColor(GetCellFilledColor(capturedInGrid[idx].Value), 0.2f);
+            }
+
+            if (comboLabel != null)
+                comboLabel.DOFade(0f, 0.15f);
+
+            yield return new WaitForSeconds(0.3f);
+        }
+
+        ClearLines();
+        onComplete?.Invoke();
+    }
+
+    private void DrawLinesForGroup(List<int> slots, Color color, float thickness)
+    {
+        if (lineContainer == null || slots.Count < 2) return;
+
+        for (int i = 0; i < slots.Count - 1; i++)
+        {
+            int a = slots[i];
+            int b = slots[i + 1];
+            if (a >= gridCellBgs.Length || b >= gridCellBgs.Length) continue;
+            if (gridCellBgs[a] == null || gridCellBgs[b] == null) continue;
+
+            DrawLine(gridCellBgs[a].rectTransform, gridCellBgs[b].rectTransform, color, thickness);
+        }
+    }
+
+    private float GetPreviewMultiplier(SymbolConfig.SymbolType sym, int count)
+    {
+        float baseValue = sym switch
+        {
+            SymbolConfig.SymbolType.Wild => 5.0f,
+            SymbolConfig.SymbolType.Spades => 2.0f,
+            SymbolConfig.SymbolType.Hearts => 1.8f,
+            SymbolConfig.SymbolType.Diamonds => 2.2f,
+            SymbolConfig.SymbolType.Clubs => 1.5f,
+            _ => 1f
+        };
+
+        return count switch
+        {
+            1 => 0f,
+            2 => baseValue * 0.5f,
+            3 => baseValue * 1.5f,
+            4 => baseValue * 3.0f,
+            _ => baseValue * (count * 0.8f)
+        };
+    }
+
+    private void StopComboReveal()
+    {
+        if (comboRevealCoroutine != null)
+        {
+            StopCoroutine(comboRevealCoroutine);
+            comboRevealCoroutine = null;
         }
     }
 

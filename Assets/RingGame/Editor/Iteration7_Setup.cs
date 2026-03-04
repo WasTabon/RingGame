@@ -18,7 +18,7 @@ public class Iteration7_Setup : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("Symbol Grid Setup (5×4 = 20 cells max)", EditorStyles.boldLabel);
+        GUILayout.Label("Symbol Grid + Combo Lines (5×4 = 20 cells max)", EditorStyles.boldLabel);
         GUILayout.Space(4);
         GUILayout.Label("Stage 1: 2×4=8  |  Stage 2: 3×4=12  |  Stage 3: 4×4=16  |  Stage 4: 5×4=20", EditorStyles.miniLabel);
         GUILayout.Space(8);
@@ -113,9 +113,37 @@ public class Iteration7_Setup : EditorWindow
             icons[i] = iconImg;
         }
 
+        var lineContainerGO = new GameObject("LineContainer");
+        lineContainerGO.transform.SetParent(gridParent, false);
+        var lineContainerRT = lineContainerGO.AddComponent<RectTransform>();
+        lineContainerRT.anchorMin = Vector2.zero;
+        lineContainerRT.anchorMax = Vector2.one;
+        lineContainerRT.offsetMin = Vector2.zero;
+        lineContainerRT.offsetMax = Vector2.zero;
+
+        var comboLabelGO = new GameObject("ComboLabel");
+        comboLabelGO.transform.SetParent(gridParent, false);
+        var comboLabelRT = comboLabelGO.AddComponent<RectTransform>();
+        comboLabelRT.anchorMin = new Vector2(0.5f, 0f);
+        comboLabelRT.anchorMax = new Vector2(0.5f, 0f);
+        comboLabelRT.pivot = new Vector2(0.5f, 0f);
+        comboLabelRT.anchoredPosition = new Vector2(0f, -4f);
+        comboLabelRT.sizeDelta = new Vector2(200f, 30f);
+
+        var comboTMP = comboLabelGO.AddComponent<TextMeshProUGUI>();
+        comboTMP.text = "";
+        comboTMP.fontSize = 16f;
+        comboTMP.fontStyle = FontStyles.Bold;
+        comboTMP.alignment = TextAlignmentOptions.Center;
+        comboTMP.color = new Color(1f, 0.82f, 0.15f, 0f);
+        comboTMP.enableWordWrapping = false;
+        comboTMP.raycastTarget = false;
+
         var so = new SerializedObject(rhythmPhaseUI);
 
         so.FindProperty("gridCellsContainer").objectReferenceValue = cellsRT;
+        so.FindProperty("lineContainer").objectReferenceValue = lineContainerRT;
+        so.FindProperty("comboLabel").objectReferenceValue = comboTMP;
 
         var bgsProp = so.FindProperty("gridCellBgs");
         bgsProp.arraySize = totalCells;
@@ -135,11 +163,13 @@ public class Iteration7_Setup : EditorWindow
         EditorUtility.SetDirty(rhythmPhaseUI);
         EditorSceneManager.MarkSceneDirty(rhythmPhaseUI.gameObject.scene);
 
-        Debug.Log("[Iter7] Symbol Grid created: 20 cells (5×4 max). Visible cells adjust per stage. Save scene (Ctrl+S).");
+        Debug.Log("[Iter7] Symbol Grid + Combo Lines created. 20 cells, LineContainer, ComboLabel. Save scene (Ctrl+S).");
         EditorUtility.DisplayDialog("Done",
-            "Symbol Grid created.\n20 cells (5×4) wired to RhythmPhaseUI.\n\n" +
-            "Stage 1: 8 visible\nStage 2: 12 visible\nStage 3: 16 visible\nStage 4: 20 visible\n\n" +
-            "Save scene (Ctrl+S).", "OK");
+            "Symbol Grid + Combo Lines created.\n\n" +
+            "• 20 cells (5×4) in GridCells\n" +
+            "• LineContainer for combo lines\n" +
+            "• ComboLabel for multiplier text\n\n" +
+            "All wired to RhythmPhaseUI.\nSave scene (Ctrl+S).", "OK");
     }
 
     [MenuItem("RingGame/Iteration 7/Validate & Fix")]
@@ -157,22 +187,11 @@ public class Iteration7_Setup : EditorWindow
 
         var so = new SerializedObject(ui);
 
-        bool hasBgs = PropArrayValid(so, "gridCellBgs", 20);
-        bool hasIcons = PropArrayValid(so, "gridCellIcons", 20);
-        bool hasContainer = PropReal<RectTransform>(so, "gridCellsContainer");
-
-        if (!hasBgs || !hasIcons)
-            Debug.LogWarning("[Iter7] gridCellBgs or gridCellIcons not fully assigned (expected 20) — run Setup Symbol Grid.");
-        else
-        {
-            Debug.Log("[Iter7] ✓ gridCellBgs (20 elements)");
-            Debug.Log("[Iter7] ✓ gridCellIcons (20 elements)");
-        }
-
-        if (!hasContainer)
-            Debug.LogWarning("[Iter7] gridCellsContainer not assigned — run Setup Symbol Grid.");
-        else
-            Debug.Log("[Iter7] ✓ gridCellsContainer");
+        CheckPropArray(so, "gridCellBgs", 20);
+        CheckPropArray(so, "gridCellIcons", 20);
+        CheckProp<RectTransform>(so, "gridCellsContainer", ref fixed_);
+        CheckProp<RectTransform>(so, "lineContainer", ref fixed_);
+        CheckProp<TextMeshProUGUI>(so, "comboLabel", ref fixed_);
 
         if (!PropReal<SymbolConfig>(so, "gridSymbolConfig"))
         {
@@ -240,6 +259,22 @@ public class Iteration7_Setup : EditorWindow
             Debug.Log("[Iter7 Validate] ✅ No issues found.");
 
         Debug.Log("[Iter7 Validate] ══════════════════════════════");
+    }
+
+    static void CheckProp<T>(SerializedObject so, string name, ref int fixed_) where T : Object
+    {
+        if (!PropReal<T>(so, name))
+            Debug.LogWarning($"[Iter7] ⚠️ {name} not assigned — run Setup Symbol Grid.");
+        else
+            Debug.Log($"[Iter7] ✓ {name}");
+    }
+
+    static void CheckPropArray(SerializedObject so, string name, int expectedSize)
+    {
+        if (!PropArrayValid(so, name, expectedSize))
+            Debug.LogWarning($"[Iter7] ⚠️ {name} not fully assigned (expected {expectedSize}) — run Setup Symbol Grid.");
+        else
+            Debug.Log($"[Iter7] ✓ {name} ({expectedSize} elements)");
     }
 
     static bool PropReal<T>(SerializedObject so, string name) where T : Object
