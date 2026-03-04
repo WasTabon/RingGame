@@ -9,6 +9,8 @@ public class RingController : MonoBehaviour
     private RectTransform ringBodyRect;
     private Image ringBodyImage;
     private Image ringGlowImage;
+    private Image outerGlowImage;
+    private Image innerGlowImage;
     private RectTransform symbolMarkerRoot;
     private RectTransform symbolIconRect;
     private Image symbolBgImage;
@@ -40,6 +42,12 @@ public class RingController : MonoBehaviour
         symbolIconRect = iconRect;
         symbolBgImage = bgImage;
         symbolIconImage = iconImage;
+    }
+
+    public void SetGlowLayers(Image outer, Image inner)
+    {
+        outerGlowImage = outer;
+        innerGlowImage = inner;
     }
 
     public void Init(float speed, float diameter, SymbolConfig.SymbolType symbolType,
@@ -202,6 +210,19 @@ public class RingController : MonoBehaviour
         ringGlowImage.DOKill(false);
         ringGlowImage.DOColor(new Color(baseRingColor.r, baseRingColor.g, baseRingColor.b, 0.45f), 0.05f)
             .OnComplete(() => ringGlowImage.DOFade(0f, 0.2f));
+
+        if (outerGlowImage != null)
+        {
+            outerGlowImage.DOKill(false);
+            outerGlowImage.DOFade(0.2f, 0.06f)
+                .OnComplete(() => outerGlowImage.DOFade(0.08f, 0.25f));
+        }
+        if (innerGlowImage != null)
+        {
+            innerGlowImage.DOKill(false);
+            innerGlowImage.DOFade(0.12f, 0.06f)
+                .OnComplete(() => innerGlowImage.DOFade(0.04f, 0.25f));
+        }
     }
 
     public void ResetForNewCycle()

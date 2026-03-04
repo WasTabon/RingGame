@@ -91,6 +91,23 @@ public class RingsManager : MonoBehaviour
         rt.anchoredPosition = Vector2.zero;
         rt.sizeDelta = new Vector2(ringDiameters[index], ringDiameters[index]);
 
+        VFXFactory.EnsureGenerated();
+        var glowSpr = VFXFactory.CreateGlowSprite();
+
+        var outerGlowGO = new GameObject("OuterGlow");
+        outerGlowGO.transform.SetParent(go.transform, false);
+        var outerRT = outerGlowGO.AddComponent<RectTransform>();
+        outerRT.anchorMin = new Vector2(0.5f, 0.5f);
+        outerRT.anchorMax = new Vector2(0.5f, 0.5f);
+        outerRT.pivot = new Vector2(0.5f, 0.5f);
+        outerRT.anchoredPosition = Vector2.zero;
+        outerRT.sizeDelta = new Vector2(ringDiameters[index] + 60f, ringDiameters[index] + 60f);
+        var outerImg = outerGlowGO.AddComponent<Image>();
+        outerImg.sprite = glowSpr;
+        var rc = ringColors[index % ringColors.Length];
+        outerImg.color = new Color(rc.r, rc.g, rc.b, 0.08f);
+        outerImg.raycastTarget = false;
+
         var glowGO = new GameObject("Glow");
         glowGO.transform.SetParent(go.transform, false);
         var glowRT = glowGO.AddComponent<RectTransform>();
@@ -115,6 +132,19 @@ public class RingsManager : MonoBehaviour
         var bodyImg = bodyGO.AddComponent<Image>();
         bodyImg.sprite = ringSprite;
         bodyImg.raycastTarget = false;
+
+        var innerGlowGO = new GameObject("InnerGlow");
+        innerGlowGO.transform.SetParent(go.transform, false);
+        var innerRT = innerGlowGO.AddComponent<RectTransform>();
+        innerRT.anchorMin = new Vector2(0.5f, 0.5f);
+        innerRT.anchorMax = new Vector2(0.5f, 0.5f);
+        innerRT.pivot = new Vector2(0.5f, 0.5f);
+        innerRT.anchoredPosition = Vector2.zero;
+        innerRT.sizeDelta = new Vector2(ringDiameters[index] * 0.7f, ringDiameters[index] * 0.7f);
+        var innerImg = innerGlowGO.AddComponent<Image>();
+        innerImg.sprite = glowSpr;
+        innerImg.color = new Color(rc.r, rc.g, rc.b, 0.04f);
+        innerImg.raycastTarget = false;
 
         var markerRootGO = new GameObject("MarkerRoot");
         markerRootGO.transform.SetParent(go.transform, false);
@@ -150,6 +180,7 @@ public class RingsManager : MonoBehaviour
 
         var controller = go.AddComponent<RingController>();
         controller.Setup(bodyRT, bodyImg, glowImg, markerRT, bgRT, bgImg, iconImg);
+        controller.SetGlowLayers(outerImg, innerImg);
 
         float speed = baseRotationSpeeds[index % baseRotationSpeeds.Length] * speedMult;
         controller.Init(speed, ringDiameters[index], symbol, symbolConfig, ringColors[index % ringColors.Length]);
