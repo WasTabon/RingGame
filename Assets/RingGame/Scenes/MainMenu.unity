@@ -635,7 +635,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b48eeae381011247abd5472ba2847e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sfxVolume: 0.7
+  sfxVolume: 1
 --- !u!4 &478103270
 Transform:
   m_ObjectHideFlags: 0

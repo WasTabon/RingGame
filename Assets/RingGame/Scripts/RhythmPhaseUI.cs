@@ -94,6 +94,7 @@ public class RhythmPhaseUI : MonoBehaviour
         if (!gameObject.activeSelf) return;
         StopShrinkCoroutine();
         StopComboReveal();
+        VFXManager.Instance?.StopShrinkTrail();
         rootGroup.DOFade(0f, 0.22f).OnComplete(() => gameObject.SetActive(false));
     }
 
@@ -161,11 +162,14 @@ public class RhythmPhaseUI : MonoBehaviour
 
         shrinkingRingImage.DOFade(0.9f, duration * 0.2f)
             .OnComplete(() => shrinkingRingImage.DOFade(0.5f, duration * 0.8f));
+
+        VFXManager.Instance?.StartShrinkTrail(shrinkingRing, new Color(1f, 0.92f, 0.25f));
     }
 
     public void HideShrinkingRing()
     {
         StopShrinkCoroutine();
+        VFXManager.Instance?.StopShrinkTrail();
         if (shrinkingRing == null) return;
         shrinkingRing.DOKill();
         shrinkingRingImage.DOFade(0f, 0.1f)
@@ -177,6 +181,14 @@ public class RhythmPhaseUI : MonoBehaviour
         ShowFeedback("HIT!", HitColor);
         FlashScreen(new Color(HitColor.r, HitColor.g, HitColor.b, 0.12f));
         SFXManager.Instance?.PlayHit();
+
+        if (BeatSequencer.Instance != null && RingsManager.Instance != null)
+        {
+            int idx = BeatSequencer.Instance.CurrentBeatRingIndex;
+            var rings = RingsManager.Instance.ActiveRings;
+            if (idx < rings.Count && rings[idx] != null)
+                VFXManager.Instance?.SpawnHitSpark(rings[idx].transform.position, HitColor);
+        }
     }
 
     public void ShowMissFeedback()
@@ -233,6 +245,17 @@ public class RhythmPhaseUI : MonoBehaviour
         bg.transform.DOPunchScale(Vector3.one * 0.15f, 0.25f, 5, 0.4f);
 
         SFXManager.Instance?.PlayCapture();
+
+        if (RingsManager.Instance != null)
+        {
+            var rings = RingsManager.Instance.ActiveRings;
+            if (ringIndex < rings.Count && rings[ringIndex] != null)
+            {
+                Color symColor = gridSymbolConfig != null ? gridSymbolConfig.GetColor(symbol) : Color.white;
+                VFXManager.Instance?.SpawnCaptureBurst(rings[ringIndex].transform.position, symColor);
+            }
+        }
+
         RefreshMatchHighlights();
     }
 
@@ -551,6 +574,20 @@ public class RhythmPhaseUI : MonoBehaviour
 
             SFXManager.Instance?.PlayComboReveal();
 
+            for (int j = 0; j < combo.slots.Count - 1; j++)
+            {
+                int a = combo.slots[j];
+                int b = combo.slots[j + 1];
+                if (a < gridCellBgs.Length && b < gridCellBgs.Length
+                    && gridCellBgs[a] != null && gridCellBgs[b] != null)
+                {
+                    VFXManager.Instance?.SpawnComboLineGlow(
+                        gridCellBgs[a].transform.position,
+                        gridCellBgs[b].transform.position,
+                        symColor);
+                }
+            }
+
             if (comboLabel != null)
             {
                 string symName = combo.symbol.ToString().ToUpper();
@@ -647,6 +684,7 @@ public class RhythmPhaseUI : MonoBehaviour
 
         FlashScreen(new Color(CycleColor.r, CycleColor.g, CycleColor.b, 0.18f));
         SFXManager.Instance?.PlayCycleEnd();
+        VFXManager.Instance?.SpawnCycleEndEffect();
     }
 
     public void ShowPhaseComplete(System.Action onComplete)

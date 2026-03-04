@@ -186,6 +186,7 @@ public class ResultScreenUI : MonoBehaviour
                 slot.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack);
 
                 SFXManager.Instance?.PlaySymbolTick();
+                VFXManager.Instance?.SpawnSymbolRevealTick(slot.transform.position);
                 yield return new WaitForSeconds(0.12f);
             }
         }
@@ -197,6 +198,14 @@ public class ResultScreenUI : MonoBehaviour
             yield return StartCoroutine(HighlightWinners(payout));
 
             SFXManager.Instance?.PlayWin(payout.multiplier);
+
+            VFXManager.Instance?.SpawnWinCelebration(payout.multiplier);
+
+            if (payout.multiplier >= 5f)
+            {
+                var shakeTarget = rootGroup != null ? rootGroup.transform as RectTransform : null;
+                VFXManager.Instance?.ShakeCanvas(shakeTarget, payout.multiplier >= 10f ? 2f : 1f);
+            }
 
             if (flashOverlay != null)
             {
