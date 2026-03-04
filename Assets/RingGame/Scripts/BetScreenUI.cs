@@ -273,6 +273,8 @@ public class BetScreenUI : MonoBehaviour
         else
             BetManager.Instance.DecreaseBet();
 
+        SFXManager.Instance?.PlayBetTick();
+
         var btnRect = increase ? increaseBtnRect : decreaseBtnRect;
         btnRect.DOKill(false);
         btnRect.DOPunchScale(Vector3.one * 0.15f, 0.2f, 5, 0.5f);
@@ -282,6 +284,8 @@ public class BetScreenUI : MonoBehaviour
     {
         if (!canInteract) return;
         setter();
+
+        SFXManager.Instance?.PlayButtonClick();
 
         var rt = btn.GetComponent<RectTransform>();
         rt.DOKill(false);
@@ -294,6 +298,7 @@ public class BetScreenUI : MonoBehaviour
         if (BalanceManager.Instance.Balance < BetManager.Instance.CurrentBet) return;
 
         canInteract = false;
+        SFXManager.Instance?.PlayButtonClick();
         BalanceManager.Instance.TrySpend(BetManager.Instance.CurrentBet);
 
         startBtnRect.DOKill(false);

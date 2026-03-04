@@ -185,6 +185,7 @@ public class ResultScreenUI : MonoBehaviour
                     bg.transform.DOScale(1f, 0.22f).SetEase(Ease.OutBack);
                 slot.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack);
 
+                SFXManager.Instance?.PlaySymbolTick();
                 yield return new WaitForSeconds(0.12f);
             }
         }
@@ -194,6 +195,8 @@ public class ResultScreenUI : MonoBehaviour
         if (payout.isWin)
         {
             yield return StartCoroutine(HighlightWinners(payout));
+
+            SFXManager.Instance?.PlayWin(payout.multiplier);
 
             if (flashOverlay != null)
             {
@@ -220,6 +223,7 @@ public class ResultScreenUI : MonoBehaviour
         else
         {
             if (payoutText != null) payoutText.DOFade(1f, 0.3f);
+            SFXManager.Instance?.PlayLose();
         }
 
         yield return new WaitForSeconds(0.5f);

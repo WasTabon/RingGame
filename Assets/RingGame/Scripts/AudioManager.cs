@@ -102,6 +102,12 @@ public class AudioManager : MonoBehaviour
             sfxSource.PlayOneShot(clip);
     }
 
+    public void PlaySFX(AudioClip clip, float volumeScale)
+    {
+        if (clip != null)
+            sfxSource.PlayOneShot(clip, volumeScale);
+    }
+
     public void SetMusicVolume(float vol) => musicSource.volume = Mathf.Clamp01(vol);
     public void SetSFXVolume(float vol) => sfxSource.volume = Mathf.Clamp01(vol);
     public void SetBeatSensitivity(float value) => beatSensitivity = Mathf.Clamp(value, 0.1f, 2f);

@@ -113,6 +113,7 @@ public class RhythmPhaseController : MonoBehaviour
 
     private IEnumerator StartSequenceDelayed()
     {
+        SFXManager.Instance?.PlayPhaseStart();
         yield return new WaitForSeconds(0.9f);
         BeatSequencer.Instance?.StartSequence(currentStage, RingsManager.Instance.RingCount);
     }

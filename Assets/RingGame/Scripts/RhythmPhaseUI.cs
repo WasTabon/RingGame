@@ -176,12 +176,14 @@ public class RhythmPhaseUI : MonoBehaviour
     {
         ShowFeedback("HIT!", HitColor);
         FlashScreen(new Color(HitColor.r, HitColor.g, HitColor.b, 0.12f));
+        SFXManager.Instance?.PlayHit();
     }
 
     public void ShowMissFeedback()
     {
         ShowFeedback("MISS", MissColor);
         FlashScreen(new Color(MissColor.r, MissColor.g, MissColor.b, 0.15f));
+        SFXManager.Instance?.PlayMiss();
     }
 
     private void ShowFeedback(string text, Color color)
@@ -230,6 +232,7 @@ public class RhythmPhaseUI : MonoBehaviour
         bg.DOColor(filledColor, 0.2f);
         bg.transform.DOPunchScale(Vector3.one * 0.15f, 0.25f, 5, 0.4f);
 
+        SFXManager.Instance?.PlayCapture();
         RefreshMatchHighlights();
     }
 
@@ -546,6 +549,8 @@ public class RhythmPhaseUI : MonoBehaviour
             Color lineColor = new Color(symColor.r, symColor.g, symColor.b, 0.9f);
             DrawLinesForGroup(combo.slots, lineColor, ComboLineThickness);
 
+            SFXManager.Instance?.PlayComboReveal();
+
             if (comboLabel != null)
             {
                 string symName = combo.symbol.ToString().ToUpper();
@@ -641,6 +646,7 @@ public class RhythmPhaseUI : MonoBehaviour
         }
 
         FlashScreen(new Color(CycleColor.r, CycleColor.g, CycleColor.b, 0.18f));
+        SFXManager.Instance?.PlayCycleEnd();
     }
 
     public void ShowPhaseComplete(System.Action onComplete)

@@ -32,6 +32,7 @@ public class ResultScreenController : MonoBehaviour
 
     public void OnPlayAgain()
     {
+        SFXManager.Instance?.PlayButtonClick();
         resultScreenUI?.Hide(() =>
         {
             GameManager.Instance.SetState(GameManager.GameState.BetScreen);
@@ -47,6 +48,7 @@ public class ResultScreenController : MonoBehaviour
 
     public void OnMainMenu()
     {
+        SFXManager.Instance?.PlayButtonClick();
         resultScreenUI?.Hide(() => GameManager.Instance.GoToMainMenu());
     }
 }

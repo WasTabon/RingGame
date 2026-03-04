@@ -132,6 +132,8 @@ public class MainMenuUI : MonoBehaviour
         if (!canInteract) return;
         canInteract = false;
 
+        SFXManager.Instance?.PlayButtonClick();
+
         playButtonRect.DOKill(false);
         playButtonRect.DOScale(0.9f, 0.08f)
             .SetEase(Ease.OutQuad)
