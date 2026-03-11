@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 public class TapInputHandler : MonoBehaviour
 {
@@ -7,7 +6,12 @@ public class TapInputHandler : MonoBehaviour
 
     public System.Action OnTap;
 
+    [SerializeField] private float swipeThreshold = 20f;
+
     private bool isActive;
+    private bool tracking;
+    private bool consumed;
+    private Vector2 startPos;
 
     private void Awake()
     {
@@ -18,31 +22,77 @@ public class TapInputHandler : MonoBehaviour
     public void SetActive(bool active)
     {
         isActive = active;
+        if (!active)
+        {
+            tracking = false;
+            consumed = false;
+        }
     }
 
     private void Update()
     {
         if (!isActive) return;
 
-        bool tapped = false;
-
-        if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
-        {
-            if (!IsPointerOverUI(Input.GetTouch(0).fingerId))
-                tapped = true;
-        }
-        else if (Input.GetMouseButtonDown(0))
-        {
-            if (!IsPointerOverUI(-1))
-                tapped = true;
-        }
-
-        if (tapped)
-            OnTap?.Invoke();
+        if (Input.touchCount > 0)
+            HandleTouch();
+        else
+            HandleMouse();
     }
 
-    private bool IsPointerOverUI(int fingerId)
+    private void HandleTouch()
     {
-        return false;
+        var touch = Input.GetTouch(0);
+
+        switch (touch.phase)
+        {
+            case TouchPhase.Began:
+                startPos = touch.position;
+                tracking = true;
+                consumed = false;
+                break;
+
+            case TouchPhase.Moved:
+            case TouchPhase.Stationary:
+                if (tracking && !consumed)
+                {
+                    float dist = Vector2.Distance(touch.position, startPos);
+                    if (dist >= swipeThreshold)
+                    {
+                        consumed = true;
+                        OnTap?.Invoke();
+                    }
+                }
+                break;
+
+            case TouchPhase.Ended:
+            case TouchPhase.Canceled:
+                tracking = false;
+                consumed = false;
+                break;
+        }
+    }
+
+    private void HandleMouse()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            startPos = Input.mousePosition;
+            tracking = true;
+            consumed = false;
+        }
+        else if (Input.GetMouseButton(0) && tracking && !consumed)
+        {
+            float dist = Vector2.Distance((Vector2)Input.mousePosition, startPos);
+            if (dist >= swipeThreshold)
+            {
+                consumed = true;
+                OnTap?.Invoke();
+            }
+        }
+        else if (Input.GetMouseButtonUp(0))
+        {
+            tracking = false;
+            consumed = false;
+        }
     }
 }

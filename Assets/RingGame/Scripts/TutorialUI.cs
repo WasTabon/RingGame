@@ -34,15 +34,16 @@ public class TutorialUI : MonoBehaviour
     private static readonly string[] Pages =
     {
         "RingGame is a rhythm casino game where your timing skills determine your wins.\n\n" +
-        "Tap to the beat, capture symbols, and match them for big payouts.",
+        "Swipe to the beat, capture symbols, and match them for big payouts.",
 
         "When a round starts, rings spin around the screen. Each ring carries a symbol.\n\n" +
         "A yellow shrinking circle will appear on one ring at a time. " +
-        "This is your timing window. Tap anywhere on the screen before it closes to capture that ring.",
+        "This is your timing window. Swipe anywhere on the screen in any direction before it closes to capture that ring.",
 
-        "Each successful tap captures the symbol on that ring and adds it to the grid at the bottom of the screen.\n\n" +
+        "Each successful swipe captures the symbol on that ring and adds it to the grid at the bottom of the screen.\n\n" +
         "If you miss the timing window, you lose an attempt. " +
-        "You get 4 attempts per cycle and there are 4 cycles per round.",
+        "You get 4 attempts per cycle and there are 4 cycles per round.\n\n" +
+        "Any quick finger movement works. It does not matter which direction you swipe.",
 
         "Matching symbols in the grid means bigger payouts. " +
         "Two of the same symbol is a small win. Three or four is much better.\n\n" +
