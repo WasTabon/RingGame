@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 624d9fc23ca64c945bf2921c0d6e2bd9, type: 3}
   m_Name: SymbolConfig
   m_EditorClassIdentifier: 
-  spadesIcon: {fileID: 0}
-  heartsIcon: {fileID: 0}
-  diamondsIcon: {fileID: 0}
-  clubsIcon: {fileID: 0}
-  wildIcon: {fileID: 0}
+  spadesIcon: {fileID: 21300000, guid: f68b7972d6923a347a5882c73bbe4ac0, type: 3}
+  heartsIcon: {fileID: 21300000, guid: b9024c4a49c9aae48b7bf466eeddc458, type: 3}
+  diamondsIcon: {fileID: 21300000, guid: 773fa47abfa919649a268370d99129b1, type: 3}
+  clubsIcon: {fileID: 21300000, guid: fede676d66d9389498bec7b3e3839c32, type: 3}
+  wildIcon: {fileID: 21300000, guid: cc3e8d65cdc85414f82f7f3cc2c1641a, type: 3}
   spadesColor: {r: 0.85, g: 0.9, b: 1, a: 1}
   heartsColor: {r: 0.95, g: 0.2, b: 0.2, a: 1}
   diamondsColor: {r: 0.2, g: 0.6, b: 1, a: 1}
