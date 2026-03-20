@@ -177,6 +177,8 @@ public class RhythmPhaseController : MonoBehaviour
             BeatSequencer.Instance.RegisterHit();
             return;
         }
+
+        RingsManager.Instance.DimAllExcept(ringIndex);
         RingsManager.Instance.HighlightRing(ringIndex, true);
         rhythmPhaseUI.ShowShrinkingRing(ringIndex, BeatSequencer.Instance.GetWindowDuration());
         rhythmPhaseUI.PulseBeatFeedback();
@@ -187,6 +189,7 @@ public class RhythmPhaseController : MonoBehaviour
         if (!phaseActive) return;
 
         RingsManager.Instance.HighlightRing(ringIndex, false);
+        RingsManager.Instance.UndimAll();
         rhythmPhaseUI.HideShrinkingRing();
         rhythmPhaseUI.ShowMissFeedback();
 
@@ -212,6 +215,7 @@ public class RhythmPhaseController : MonoBehaviour
         BeatSequencer.Instance.RegisterHit();
 
         RingsManager.Instance.HighlightRing(ringIndex, false);
+        RingsManager.Instance.UndimAll();
         rhythmPhaseUI.HideShrinkingRing();
 
         bool isWild = ShouldBeWild();
@@ -232,6 +236,7 @@ public class RhythmPhaseController : MonoBehaviour
     private IEnumerator HandleCycleEnd()
     {
         TapInputHandler.Instance.SetActive(false);
+        RingsManager.Instance.UndimAll();
         yield return new WaitForSeconds(0.3f);
 
         rhythmPhaseUI.ShowCycleCompleteEffect(currentCycle);
@@ -264,6 +269,7 @@ public class RhythmPhaseController : MonoBehaviour
         phaseActive = false;
         TapInputHandler.Instance.SetActive(false);
         BeatSequencer.Instance.StopSequence();
+        RingsManager.Instance.UndimAll();
 
         var symbols = new List<SymbolConfig.SymbolType?>(capturedSymbols);
         float bet = BetManager.Instance != null ? BetManager.Instance.CurrentBet : 0f;
@@ -292,6 +298,7 @@ public class RhythmPhaseController : MonoBehaviour
         phaseActive = false;
         BeatSequencer.Instance.StopSequence();
         TapInputHandler.Instance.SetActive(false);
+        RingsManager.Instance.UndimAll();
         UnsubscribeFromEvents();
 
         GameManager.Instance.SetState(GameManager.GameState.BetScreen);

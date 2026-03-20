@@ -13,7 +13,7 @@ public class RingsManager : MonoBehaviour
     [SerializeField] private Sprite ringSprite;
     [SerializeField] private Sprite symbolBgSprite;
 
-    private readonly float[] ringDiameters = { 165f, 248f, 328f, 405f, 478f };
+    private readonly float[] ringDiameters = { 95f, 142f, 188f, 232f, 273f };
     private readonly float[] baseRotationSpeeds = { 30f, -42f, 55f, -65f, 76f };
 
     private readonly Color[] ringColors = {
@@ -272,5 +272,17 @@ public class RingsManager : MonoBehaviour
     {
         foreach (var ring in activeRings)
             ring.BeatPulse();
+    }
+
+    public void DimAllExcept(int activeIndex)
+    {
+        for (int i = 0; i < activeRings.Count; i++)
+            activeRings[i].SetDimmed(i != activeIndex);
+    }
+
+    public void UndimAll()
+    {
+        for (int i = 0; i < activeRings.Count; i++)
+            activeRings[i].SetDimmed(false);
     }
 }

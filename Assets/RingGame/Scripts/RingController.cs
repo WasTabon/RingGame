@@ -26,6 +26,7 @@ public class RingController : MonoBehaviour
     private float musicPulseSmooth;
 
     private bool spawnComplete;
+    private bool isDimmed;
     
     private static readonly Color HighlightColor = new Color(1f, 0.92f, 0.25f);
     private static readonly Color CapturedColor = new Color(0.25f, 1f, 0.55f);
@@ -114,6 +115,20 @@ public class RingController : MonoBehaviour
             symbolIconRect.rotation = Quaternion.identity;
 
         // пульсация управляется через BeatPulse() — вызывается от AudioManager.OnBeat
+    }
+
+    public void SetDimmed(bool dimmed)
+    {
+        if (isDimmed == dimmed) return;
+        isDimmed = dimmed;
+
+        if (CurrentState == RingState.Captured) return;
+
+        var cg = GetComponent<CanvasGroup>();
+        if (cg == null) cg = gameObject.AddComponent<CanvasGroup>();
+
+        cg.DOKill();
+        cg.DOFade(dimmed ? 0.15f : 1f, 0.15f).SetEase(Ease.OutQuad);
     }
 
     public void SetHighlighted(bool highlighted)
@@ -228,10 +243,18 @@ public class RingController : MonoBehaviour
     public void ResetForNewCycle()
     {
         CurrentState = RingState.Spinning;
+        isDimmed = false;
         ringBodyImage.DOColor(baseRingColor, 0.3f);
         ringGlowImage.DOFade(0f, 0.2f);
         var myRT = GetComponent<RectTransform>();
         myRT.DOScale(1f, 0.2f);
+
+        var cg = GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            cg.DOKill();
+            cg.DOFade(1f, 0.2f);
+        }
     }
 
     public Vector3 GetSymbolWorldPosition()
