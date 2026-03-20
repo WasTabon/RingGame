@@ -20,6 +20,10 @@ public class MainMenuUI : MonoBehaviour
     [Header("Panels")]
     [SerializeField] private SettingsUI settingsUI;
     [SerializeField] private TutorialUI tutorialUI;
+    [SerializeField] private CoinShopUI coinShopUI;
+
+    [Header("Shop")]
+    [SerializeField] private Button shopButton;
 
     [Header("Background Rings")]
     [SerializeField] private RectTransform[] bgRingVisuals;
@@ -41,6 +45,16 @@ public class MainMenuUI : MonoBehaviour
         {
             settingsButton.onClick.RemoveAllListeners();
             settingsButton.onClick.AddListener(OnSettingsClicked);
+        }
+
+        if (shopButton != null)
+        {
+            shopButton.onClick.RemoveAllListeners();
+            shopButton.onClick.AddListener(OnShopClicked);
+        }
+        else
+        {
+            Debug.LogWarning("MainMenuUI: shopButton is null!");
         }
 
         PlayIntroAnimation();
@@ -169,5 +183,12 @@ public class MainMenuUI : MonoBehaviour
     {
         if (!canInteract) return;
         settingsUI?.Show();
+    }
+
+    private void OnShopClicked()
+    {
+        if (!canInteract) return;
+        Debug.Assert(coinShopUI != null, "MainMenuUI: coinShopUI is null!");
+        coinShopUI.Show();
     }
 }
