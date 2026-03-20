@@ -47,6 +47,9 @@ public class RhythmPhaseUI : MonoBehaviour
     [Header("Dev Back Button")]
     [SerializeField] private Button backButton;
 
+    [Header("Help Button")]
+    [SerializeField] private Button helpButton;
+
     private Coroutine shrinkCoroutine;
     private Coroutine comboRevealCoroutine;
     private Tween feedbackTween;
@@ -71,6 +74,16 @@ public class RhythmPhaseUI : MonoBehaviour
         {
             backButton.onClick.RemoveAllListeners();
             backButton.onClick.AddListener(() => RhythmPhaseController.Instance?.OnBackToBet());
+        }
+
+        if (helpButton != null)
+        {
+            helpButton.onClick.RemoveAllListeners();
+            helpButton.onClick.AddListener(() => RhythmPhaseController.Instance.PauseForTutorial());
+        }
+        else
+        {
+            Debug.LogWarning("RhythmPhaseUI: helpButton is null!");
         }
 
         if (shrinkingRing != null) shrinkingRing.gameObject.SetActive(false);

@@ -8,6 +8,7 @@ public class RhythmPhaseController : MonoBehaviour
 
     [SerializeField] private RhythmPhaseUI rhythmPhaseUI;
     [SerializeField] private SwipeMapUI swipeMapUI;
+    [SerializeField] private GameTutorialUI gameTutorialUI;
 
     private const int TotalCycles = 4;
     private const int AttemptsPerCycle = 4;
@@ -125,9 +126,39 @@ public class RhythmPhaseController : MonoBehaviour
         remainingAttempts = AttemptsPerCycle;
 
         SubscribeToEvents();
-        TapInputHandler.Instance.SetActive(true);
 
-        StartCoroutine(StartSequenceDelayed());
+        bool isFirstGame = SettingsManager.Instance != null && !SettingsManager.Instance.GameTutorialDone;
+
+        if (isFirstGame)
+        {
+            Debug.Assert(gameTutorialUI != null, "RhythmPhaseController: gameTutorialUI is null!");
+            gameTutorialUI.Show(() =>
+            {
+                SettingsManager.Instance.MarkGameTutorialDone();
+                TapInputHandler.Instance.SetActive(true);
+                StartCoroutine(StartSequenceDelayed());
+            });
+        }
+        else
+        {
+            TapInputHandler.Instance.SetActive(true);
+            StartCoroutine(StartSequenceDelayed());
+        }
+    }
+
+    public void PauseForTutorial()
+    {
+        if (!phaseActive) return;
+
+        BeatSequencer.Instance.PauseSequence();
+        TapInputHandler.Instance.SetActive(false);
+
+        Debug.Assert(gameTutorialUI != null, "RhythmPhaseController: gameTutorialUI is null!");
+        gameTutorialUI.Show(() =>
+        {
+            TapInputHandler.Instance.SetActive(true);
+            BeatSequencer.Instance.ResumeSequence();
+        });
     }
 
     private IEnumerator StartSequenceDelayed()

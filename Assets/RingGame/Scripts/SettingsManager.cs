@@ -8,11 +8,13 @@ public class SettingsManager : MonoBehaviour
     private const string KeySFXVol = "setting_sfx_vol";
     private const string KeyVibration = "setting_vibration";
     private const string KeyTutorialDone = "tutorial_done";
+    private const string KeyGameTutorialDone = "game_tutorial_done";
 
     public float MusicVolume { get; private set; }
     public float SFXVolume { get; private set; }
     public bool VibrationEnabled { get; private set; }
     public bool TutorialDone => PlayerPrefs.GetInt(KeyTutorialDone, 0) == 1;
+    public bool GameTutorialDone => PlayerPrefs.GetInt(KeyGameTutorialDone, 0) == 1;
 
     public System.Action OnSettingsChanged;
 
@@ -58,6 +60,18 @@ public class SettingsManager : MonoBehaviour
     public void MarkTutorialDone()
     {
         PlayerPrefs.SetInt(KeyTutorialDone, 1);
+        PlayerPrefs.Save();
+    }
+
+    public void MarkGameTutorialDone()
+    {
+        PlayerPrefs.SetInt(KeyGameTutorialDone, 1);
+        PlayerPrefs.Save();
+    }
+
+    public void ResetGameTutorial()
+    {
+        PlayerPrefs.SetInt(KeyGameTutorialDone, 0);
         PlayerPrefs.Save();
     }
 

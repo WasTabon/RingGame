@@ -20,6 +20,7 @@ public class BeatSequencer : MonoBehaviour
     public bool IsWindowOpen { get; private set; }
     public int CurrentBeatRingIndex { get; private set; }
     public float WindowProgress { get; private set; }
+    public bool IsPaused { get; private set; }
 
     private int currentStage = 1;
     private int beatsPerCycle = 4;
@@ -42,6 +43,7 @@ public class BeatSequencer : MonoBehaviour
         windowDuration = stageWindowMs[currentStage - 1] / 1000f;
         currentBeatInCycle = 0;
         isRunning = true;
+        IsPaused = false;
         IsWindowOpen = false;
         sequencerCoroutine = StartCoroutine(SequenceLoop(ringCount));
     }
@@ -49,6 +51,7 @@ public class BeatSequencer : MonoBehaviour
     public void StopSequence()
     {
         isRunning = false;
+        IsPaused = false;
         IsWindowOpen = false;
         WindowProgress = 0f;
         if (sequencerCoroutine != null)
@@ -58,12 +61,25 @@ public class BeatSequencer : MonoBehaviour
         }
     }
 
+    public void PauseSequence()
+    {
+        IsPaused = true;
+    }
+
+    public void ResumeSequence()
+    {
+        IsPaused = false;
+    }
+
     private IEnumerator SequenceLoop(int ringCount)
     {
         yield return new WaitForSeconds(0.8f);
 
         while (isRunning)
         {
+            while (IsPaused)
+                yield return null;
+
             int ringIndex = currentBeatInCycle % ringCount;
             CurrentBeatRingIndex = ringIndex;
 
@@ -75,6 +91,9 @@ public class BeatSequencer : MonoBehaviour
 
             while (windowTimer < windowDuration)
             {
+                while (IsPaused)
+                    yield return null;
+
                 windowTimer += Time.deltaTime;
                 WindowProgress = windowTimer / windowDuration;
 
