@@ -651,10 +651,10 @@ public class RhythmPhaseUI : MonoBehaviour
         return count switch
         {
             1 => 0f,
-            2 => baseValue * 0.5f,
-            3 => baseValue * 1.5f,
-            4 => baseValue * 3.0f,
-            _ => baseValue * (count * 0.8f)
+            2 => baseValue * 0.167f,
+            3 => baseValue * 0.5f,
+            4 => baseValue * 1.0f,
+            _ => baseValue * (count * 0.267f)
         };
     }
 

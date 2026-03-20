@@ -93,18 +93,18 @@ public static class PayoutCalculator
         return count switch
         {
             1 => 0f,
-            2 => baseValue * 0.5f,
-            3 => baseValue * 1.5f,
-            4 => baseValue * 3.0f,
-            _ => baseValue * (count * 0.8f)
+            2 => baseValue * 0.167f,
+            3 => baseValue * 0.5f,
+            4 => baseValue * 1.0f,
+            _ => baseValue * (count * 0.267f)
         };
     }
 
     private static string GetLabel(float multiplier)
     {
-        if (multiplier >= 10f) return "JACKPOT!";
-        if (multiplier >= 5f)  return "BIG WIN!";
-        if (multiplier >= 2f)  return "WIN!";
+        if (multiplier >= 3.3f) return "JACKPOT!";
+        if (multiplier >= 1.7f)  return "BIG WIN!";
+        if (multiplier >= 0.67f) return "WIN!";
         return "SMALL WIN";
     }
 }

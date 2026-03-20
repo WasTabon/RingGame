@@ -7,6 +7,7 @@ public class RhythmPhaseController : MonoBehaviour
     public static RhythmPhaseController Instance { get; private set; }
 
     [SerializeField] private RhythmPhaseUI rhythmPhaseUI;
+    [SerializeField] private SwipeMapUI swipeMapUI;
 
     private const int TotalCycles = 4;
     private const int AttemptsPerCycle = 4;
@@ -58,8 +59,8 @@ public class RhythmPhaseController : MonoBehaviour
         }
         if (TapInputHandler.Instance != null)
         {
-            TapInputHandler.Instance.OnTap -= OnTap;
-            TapInputHandler.Instance.OnTap += OnTap;
+            TapInputHandler.Instance.OnSwipe -= OnSwipe;
+            TapInputHandler.Instance.OnSwipe += OnSwipe;
         }
     }
 
@@ -74,39 +75,57 @@ public class RhythmPhaseController : MonoBehaviour
             BeatSequencer.Instance.OnCycleComplete -= OnCycleComplete;
         }
         if (TapInputHandler.Instance != null)
-            TapInputHandler.Instance.OnTap -= OnTap;
+            TapInputHandler.Instance.OnSwipe -= OnSwipe;
     }
 
     public void ActivatePhaseFromBet()
     {
         currentStage = StageManager.Instance != null ? StageManager.Instance.CurrentStage : 1;
         capturedSymbols.Clear();
-        StartPhase();
+
+        Debug.Assert(SwipeDirectionMap.Instance != null, "RhythmPhaseController: SwipeDirectionMap.Instance is null!");
+        SwipeDirectionMap.Instance.GenerateNewMapping();
+
+        rhythmPhaseUI.Show();
+        rhythmPhaseUI.ResetGrid(currentStage);
+        rhythmPhaseUI.UpdateCycleDisplay(1, TotalCycles, false);
+        rhythmPhaseUI.UpdateAttempts(AttemptsPerCycle, false);
+
+        RingsManager.Instance.SetupForStage(currentStage);
+        RingsManager.Instance.PlayEntrance();
+
+        Debug.Assert(swipeMapUI != null, "RhythmPhaseController: swipeMapUI is null!");
+        swipeMapUI.Show(() => BeginPhaseAfterMapping());
     }
 
     public void ActivatePhaseFromEscalation(int stage)
     {
         currentStage = stage;
         capturedSymbols.Clear();
-        StartPhase();
+
+        Debug.Assert(SwipeDirectionMap.Instance != null, "RhythmPhaseController: SwipeDirectionMap.Instance is null!");
+        SwipeDirectionMap.Instance.GenerateNewMapping();
+
+        rhythmPhaseUI.Show();
+        rhythmPhaseUI.ResetGrid(currentStage);
+        rhythmPhaseUI.UpdateCycleDisplay(1, TotalCycles, false);
+        rhythmPhaseUI.UpdateAttempts(AttemptsPerCycle, false);
+
+        RingsManager.Instance.SetupForStage(currentStage);
+        RingsManager.Instance.PlayEntrance();
+
+        Debug.Assert(swipeMapUI != null, "RhythmPhaseController: swipeMapUI is null!");
+        swipeMapUI.Show(() => BeginPhaseAfterMapping());
     }
 
-    private void StartPhase()
+    private void BeginPhaseAfterMapping()
     {
         phaseActive = true;
         currentCycle = 1;
         remainingAttempts = AttemptsPerCycle;
 
-        rhythmPhaseUI?.Show();
-        rhythmPhaseUI?.ResetGrid(currentStage);
-        rhythmPhaseUI?.UpdateCycleDisplay(currentCycle, TotalCycles, false);
-        rhythmPhaseUI?.UpdateAttempts(remainingAttempts, false);
-
-        RingsManager.Instance?.SetupForStage(currentStage);
-        RingsManager.Instance?.PlayEntrance();
-
         SubscribeToEvents();
-        TapInputHandler.Instance?.SetActive(true);
+        TapInputHandler.Instance.SetActive(true);
 
         StartCoroutine(StartSequenceDelayed());
     }
@@ -115,58 +134,62 @@ public class RhythmPhaseController : MonoBehaviour
     {
         SFXManager.Instance?.PlayPhaseStart();
         yield return new WaitForSeconds(0.9f);
-        BeatSequencer.Instance?.StartSequence(currentStage, RingsManager.Instance.RingCount);
+        BeatSequencer.Instance.StartSequence(currentStage, RingsManager.Instance.RingCount);
     }
 
     private void OnBeatCue(int ringIndex)
     {
         if (!phaseActive) return;
-        var ring = RingsManager.Instance?.ActiveRings[ringIndex];
+        var ring = RingsManager.Instance.ActiveRings[ringIndex];
         if (ring != null && ring.CurrentState == RingController.RingState.Captured)
         {
-            BeatSequencer.Instance?.RegisterHit();
+            BeatSequencer.Instance.RegisterHit();
             return;
         }
-        RingsManager.Instance?.HighlightRing(ringIndex, true);
-        rhythmPhaseUI?.ShowShrinkingRing(ringIndex, BeatSequencer.Instance.GetWindowDuration());
-        rhythmPhaseUI?.PulseBeatFeedback();
+        RingsManager.Instance.HighlightRing(ringIndex, true);
+        rhythmPhaseUI.ShowShrinkingRing(ringIndex, BeatSequencer.Instance.GetWindowDuration());
+        rhythmPhaseUI.PulseBeatFeedback();
     }
 
     private void OnBeatExpired(int ringIndex)
     {
         if (!phaseActive) return;
 
-        RingsManager.Instance?.HighlightRing(ringIndex, false);
-        rhythmPhaseUI?.HideShrinkingRing();
-        rhythmPhaseUI?.ShowMissFeedback();
+        RingsManager.Instance.HighlightRing(ringIndex, false);
+        rhythmPhaseUI.HideShrinkingRing();
+        rhythmPhaseUI.ShowMissFeedback();
 
         remainingAttempts--;
-        rhythmPhaseUI?.UpdateAttempts(remainingAttempts, true);
+        rhythmPhaseUI.UpdateAttempts(remainingAttempts, true);
 
         if (remainingAttempts <= 0)
-            BeatSequencer.Instance?.StopSequence();
+            BeatSequencer.Instance.StopSequence();
     }
 
-    private void OnTap()
+    private void OnSwipe(SwipeDirection direction)
     {
         if (!phaseActive) return;
         if (BeatSequencer.Instance == null || !BeatSequencer.Instance.IsWindowOpen) return;
 
         int ringIndex = BeatSequencer.Instance.CurrentBeatRingIndex;
+        var ring = RingsManager.Instance.ActiveRings[ringIndex];
+        var ringSymbol = ring.SymbolType;
+
+        if (!SwipeDirectionMap.Instance.IsCorrectSwipe(ringSymbol, direction))
+            return;
+
         BeatSequencer.Instance.RegisterHit();
 
-        RingsManager.Instance?.HighlightRing(ringIndex, false);
-        rhythmPhaseUI?.HideShrinkingRing();
+        RingsManager.Instance.HighlightRing(ringIndex, false);
+        rhythmPhaseUI.HideShrinkingRing();
 
         bool isWild = ShouldBeWild();
-        var symbol = isWild
-            ? SymbolConfig.SymbolType.Wild
-            : RingsManager.Instance.ActiveRings[ringIndex].SymbolType;
+        var capturedSymbol = isWild ? SymbolConfig.SymbolType.Wild : ringSymbol;
 
-        capturedSymbols.Add(symbol);
-        RingsManager.Instance?.CaptureRing(ringIndex);
-        rhythmPhaseUI?.ShowHitFeedback();
-        rhythmPhaseUI?.ShowCapturedSymbol(ringIndex, symbol);
+        capturedSymbols.Add(capturedSymbol);
+        RingsManager.Instance.CaptureRing(ringIndex);
+        rhythmPhaseUI.ShowHitFeedback();
+        rhythmPhaseUI.ShowCapturedSymbol(ringIndex, capturedSymbol);
     }
 
     private void OnCycleComplete()
@@ -177,11 +200,11 @@ public class RhythmPhaseController : MonoBehaviour
 
     private IEnumerator HandleCycleEnd()
     {
-        TapInputHandler.Instance?.SetActive(false);
+        TapInputHandler.Instance.SetActive(false);
         yield return new WaitForSeconds(0.3f);
 
-        rhythmPhaseUI?.ShowCycleCompleteEffect(currentCycle);
-        RingsManager.Instance?.ShrinkAllRings(null);
+        rhythmPhaseUI.ShowCycleCompleteEffect(currentCycle);
+        RingsManager.Instance.ShrinkAllRings(null);
 
         yield return new WaitForSeconds(0.7f);
 
@@ -194,34 +217,34 @@ public class RhythmPhaseController : MonoBehaviour
         currentCycle++;
         remainingAttempts = AttemptsPerCycle;
 
-        rhythmPhaseUI?.UpdateCycleDisplay(currentCycle, TotalCycles, true);
-        rhythmPhaseUI?.UpdateAttempts(remainingAttempts, false);
+        rhythmPhaseUI.UpdateCycleDisplay(currentCycle, TotalCycles, true);
+        rhythmPhaseUI.UpdateAttempts(remainingAttempts, false);
 
-        RingsManager.Instance?.ResetCapturedRings();
+        RingsManager.Instance.ResetCapturedRings();
 
         yield return new WaitForSeconds(0.4f);
 
-        TapInputHandler.Instance?.SetActive(true);
-        BeatSequencer.Instance?.StartSequence(currentStage, RingsManager.Instance.RingCount);
+        TapInputHandler.Instance.SetActive(true);
+        BeatSequencer.Instance.StartSequence(currentStage, RingsManager.Instance.RingCount);
     }
 
     private void EndPhase()
     {
         phaseActive = false;
-        TapInputHandler.Instance?.SetActive(false);
-        BeatSequencer.Instance?.StopSequence();
+        TapInputHandler.Instance.SetActive(false);
+        BeatSequencer.Instance.StopSequence();
 
         var symbols = new List<SymbolConfig.SymbolType?>(capturedSymbols);
         float bet = BetManager.Instance != null ? BetManager.Instance.CurrentBet : 0f;
         int stage = currentStage;
 
-        rhythmPhaseUI?.PlayComboReveal(() =>
+        rhythmPhaseUI.PlayComboReveal(() =>
         {
-            rhythmPhaseUI?.ShowPhaseComplete(() =>
+            rhythmPhaseUI.ShowPhaseComplete(() =>
             {
                 GameManager.Instance.SetState(GameManager.GameState.ResultScreen);
-                rhythmPhaseUI?.Hide();
-                ResultScreenController.Instance?.ShowResult(symbols, bet, stage);
+                rhythmPhaseUI.Hide();
+                ResultScreenController.Instance.ShowResult(symbols, bet, stage);
             });
         });
     }
@@ -236,18 +259,22 @@ public class RhythmPhaseController : MonoBehaviour
     public void OnBackToBet()
     {
         phaseActive = false;
-        BeatSequencer.Instance?.StopSequence();
-        TapInputHandler.Instance?.SetActive(false);
+        BeatSequencer.Instance.StopSequence();
+        TapInputHandler.Instance.SetActive(false);
         UnsubscribeFromEvents();
 
         GameManager.Instance.SetState(GameManager.GameState.BetScreen);
-        rhythmPhaseUI?.Hide();
+        rhythmPhaseUI.Hide();
 
         var betUI = FindObjectOfType<BetScreenUI>(true);
         if (betUI != null)
         {
             betUI.gameObject.SetActive(true);
             betUI.ResetAndShow();
+        }
+        else
+        {
+            Debug.LogWarning("RhythmPhaseController: BetScreenUI not found!");
         }
     }
 

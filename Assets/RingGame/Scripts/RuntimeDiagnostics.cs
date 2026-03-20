@@ -72,9 +72,9 @@ public class RuntimeDiagnostics : MonoBehaviour
 
         if (TapInputHandler.Instance != null)
         {
-            TapInputHandler.Instance.OnTap -= OnTap;
-            TapInputHandler.Instance.OnTap += OnTap;
-            Log("  [OK] TapInputHandler.OnTap");
+            TapInputHandler.Instance.OnSwipe -= OnSwipe;
+            TapInputHandler.Instance.OnSwipe += OnSwipe;
+            Log("  [OK] TapInputHandler.OnSwipe");
         }
         else Log("  [FAIL] TapInputHandler.Instance is NULL");
 
@@ -155,7 +155,7 @@ public class RuntimeDiagnostics : MonoBehaviour
         Log($"  [CYCLE COMPLETE] t={T()}");
     }
 
-    private void OnTap()
+    private void OnSwipe(SwipeDirection direction)
     {
         tapCount++;
         bool windowOpen = BeatSequencer.Instance?.IsWindowOpen ?? false;
@@ -163,12 +163,12 @@ public class RuntimeDiagnostics : MonoBehaviour
         if (windowOpen)
         {
             tapHitCount++;
-            Log($"  [TAP HIT] #{tapCount} t={T()} ring={ringIndex} progress={BeatSequencer.Instance?.WindowProgress:F2}");
+            Log($"  [SWIPE HIT] #{tapCount} t={T()} ring={ringIndex} dir={direction} progress={BeatSequencer.Instance?.WindowProgress:F2}");
         }
         else
         {
             tapMissCount++;
-            Log($"  [TAP MISS] #{tapCount} t={T()} window was closed");
+            Log($"  [SWIPE MISS] #{tapCount} t={T()} dir={direction} window was closed");
         }
     }
 
@@ -208,7 +208,7 @@ public class RuntimeDiagnostics : MonoBehaviour
     private void UnsubscribeFromEvents()
     {
         if (AudioManager.Instance != null) AudioManager.Instance.OnBeat -= OnBeat;
-        if (TapInputHandler.Instance != null) TapInputHandler.Instance.OnTap -= OnTap;
+        if (TapInputHandler.Instance != null) TapInputHandler.Instance.OnSwipe -= OnSwipe;
         if (BeatSequencer.Instance != null)
         {
             BeatSequencer.Instance.OnBeatCue -= OnBeatCue;
@@ -236,10 +236,10 @@ public class RuntimeDiagnostics : MonoBehaviour
         Log(beatCueCount == 0
             ? "  -> [WARN] No beat cues — BeatSequencer never started or not connected to controller"
             : "  -> [OK] Beat cues fired");
-        Log($"Taps: {tapCount}  Hits: {tapHitCount}  Misses: {tapMissCount}");
+        Log($"Swipes: {tapCount}  Hits: {tapHitCount}  Misses: {tapMissCount}");
         Log(tapCount == 0
-            ? "  -> [WARN] No taps — TapInputHandler not working or not active"
-            : "  -> [OK] Taps registered");
+            ? "  -> [WARN] No swipes — TapInputHandler not working or not active"
+            : "  -> [OK] Swipes registered");
 
         string path = Path.Combine(Application.persistentDataPath, "diagnostics.txt");
         File.WriteAllLines(path, log);

@@ -4,7 +4,7 @@ public class TapInputHandler : MonoBehaviour
 {
     public static TapInputHandler Instance { get; private set; }
 
-    public System.Action OnTap;
+    public System.Action<SwipeDirection> OnSwipe;
 
     [SerializeField] private float swipeThreshold = 20f;
 
@@ -55,11 +55,11 @@ public class TapInputHandler : MonoBehaviour
             case TouchPhase.Stationary:
                 if (tracking && !consumed)
                 {
-                    float dist = Vector2.Distance(touch.position, startPos);
-                    if (dist >= swipeThreshold)
+                    Vector2 delta = touch.position - startPos;
+                    if (delta.magnitude >= swipeThreshold)
                     {
                         consumed = true;
-                        OnTap?.Invoke();
+                        OnSwipe?.Invoke(ResolveDirection(delta));
                     }
                 }
                 break;
@@ -82,11 +82,11 @@ public class TapInputHandler : MonoBehaviour
         }
         else if (Input.GetMouseButton(0) && tracking && !consumed)
         {
-            float dist = Vector2.Distance((Vector2)Input.mousePosition, startPos);
-            if (dist >= swipeThreshold)
+            Vector2 delta = (Vector2)Input.mousePosition - startPos;
+            if (delta.magnitude >= swipeThreshold)
             {
                 consumed = true;
-                OnTap?.Invoke();
+                OnSwipe?.Invoke(ResolveDirection(delta));
             }
         }
         else if (Input.GetMouseButtonUp(0))
@@ -94,5 +94,13 @@ public class TapInputHandler : MonoBehaviour
             tracking = false;
             consumed = false;
         }
+    }
+
+    private SwipeDirection ResolveDirection(Vector2 delta)
+    {
+        if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
+            return delta.x > 0 ? SwipeDirection.Right : SwipeDirection.Left;
+        else
+            return delta.y > 0 ? SwipeDirection.Up : SwipeDirection.Down;
     }
 }
